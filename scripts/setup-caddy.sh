@@ -309,7 +309,7 @@ ${DOMAIN} {
 
     # SSE endpoint - needs special handling for long-lived connections
     handle /sse* {
-        reverse_proxy localhost:3000 {
+        reverse_proxy 127.0.0.1:3000 {
             transport http {
                 read_timeout 0
                 write_timeout 0
@@ -323,7 +323,7 @@ ${DOMAIN} {
 
     # Message endpoint for MCP protocol
     handle /message* {
-        reverse_proxy localhost:3000 {
+        reverse_proxy 127.0.0.1:3000 {
             header_up X-Real-IP {remote_host}
             header_up X-Forwarded-For {remote_host}
             header_up X-Forwarded-Proto {scheme}
@@ -332,7 +332,7 @@ ${DOMAIN} {
 
     # RPC endpoint
     handle /rpc* {
-        reverse_proxy localhost:3000 {
+        reverse_proxy 127.0.0.1:3000 {
             header_up X-Real-IP {remote_host}
             header_up X-Forwarded-For {remote_host}
             header_up X-Forwarded-Proto {scheme}
@@ -341,7 +341,7 @@ ${DOMAIN} {
 
     # Admin endpoints
     handle /admin* {
-        reverse_proxy localhost:3000 {
+        reverse_proxy 127.0.0.1:3000 {
             header_up X-Real-IP {remote_host}
             header_up X-Forwarded-For {remote_host}
             header_up X-Forwarded-Proto {scheme}
@@ -350,7 +350,7 @@ ${DOMAIN} {
 
     # Default handler
     handle {
-        reverse_proxy localhost:3000 {
+        reverse_proxy 127.0.0.1:3000 {
             header_up X-Real-IP {remote_host}
             header_up X-Forwarded-For {remote_host}
             header_up X-Forwarded-Proto {scheme}
@@ -368,9 +368,17 @@ ${DOMAIN} {
 }
 EOF
 
-    # Create log directory
+    # Create log directory with proper permissions
+    # This must be done BEFORE starting Caddy to prevent service failure
     mkdir -p /var/log/caddy
-    chown caddy:caddy /var/log/caddy
+    chmod 755 /var/log/caddy
+    # Try to set caddy ownership, fallback to world-writable if caddy user doesn't exist
+    if id "caddy" &>/dev/null; then
+        chown caddy:caddy /var/log/caddy
+    else
+        chmod 777 /var/log/caddy
+        log_warn "Caddy user not found, using 777 permissions on log directory"
+    fi
 
     log_info "Caddy configuration created at ${CADDY_CONFIG_FILE}"
 }

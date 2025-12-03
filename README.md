@@ -915,6 +915,47 @@ chmod 666 config/gateway.json
 3. Verify your `claude_desktop_config.json` has the correct URL and token
 4. Restart Claude Desktop after config changes
 
+### Running in Docker/Containers (non-systemd)
+
+If you're running in a container or non-systemd environment:
+
+```bash
+# The setup script will detect this and create a start script
+./scripts/setup-ubuntu.sh
+
+# Then start manually using one of these methods:
+./start-gateway.sh                                    # Helper script created by setup
+node dist/index.js                                    # Direct execution
+screen -dmS mcp-gateway bash -c 'npm start'           # Screen session
+nohup node dist/index.js > logs/mcp-gateway.log 2>&1 &  # Background with nohup
+```
+
+### Caddy can't reach the gateway
+
+If Caddy shows "connection refused" or similar errors:
+
+1. **Check gateway is listening on correct interface:**
+   ```bash
+   # Gateway should listen on 0.0.0.0 for standalone, or 127.0.0.1 behind Caddy
+   grep '"host"' config/gateway.json
+   ```
+
+2. **Verify log directory exists:**
+   ```bash
+   # Caddy fails if log directory doesn't exist
+   sudo mkdir -p /var/log/caddy
+   sudo chmod 755 /var/log/caddy
+   # If caddy user exists:
+   sudo chown caddy:caddy /var/log/caddy
+   ```
+
+3. **Check Caddy can resolve the backend:**
+   ```bash
+   # Caddy uses 127.0.0.1:3000 (explicit IP) instead of localhost
+   # This is more reliable in containers/network namespaces
+   curl http://127.0.0.1:3000/admin/health
+   ```
+
 ---
 
 ## Security Considerations

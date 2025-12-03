@@ -7,6 +7,7 @@ mcp.yourdomain.com {
     # Caddy will automatically obtain and renew SSL certificates from Let's Encrypt
 
     # Reverse proxy to the local MCP Gateway
+    # Use explicit IP instead of 'localhost' for better compatibility in containers/network namespaces
     reverse_proxy 127.0.0.1:3000 {
         # Enable streaming for SSE connections
         flush_interval -1

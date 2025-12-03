@@ -245,6 +245,32 @@ set_permissions() {
 create_systemd_service() {
     log_step "Creating systemd service..."
 
+    # Check if systemd is available
+    if ! command -v systemctl &> /dev/null || ! pidof systemd &> /dev/null; then
+        log_warn "systemd not available (running in container or non-systemd system)"
+        log_info "Skipping systemd service creation"
+        log_info ""
+        log_info "To start the gateway manually, use one of these methods:"
+        log_info "  1. Direct: cd ${INSTALL_DIR} && node dist/index.js"
+        log_info "  2. NPM:    cd ${INSTALL_DIR} && npm start"
+        log_info "  3. Screen: screen -dmS mcp-gateway bash -c 'cd ${INSTALL_DIR} && npm start'"
+        log_info "  4. Nohup:  nohup node ${INSTALL_DIR}/dist/index.js > ${LOG_DIR}/mcp-gateway.log 2>&1 &"
+        log_info ""
+
+        # Create a helper start script for non-systemd environments
+        cat > "${INSTALL_DIR}/start-gateway.sh" <<STARTSCRIPT
+#!/bin/bash
+# Start MCP Gateway (for non-systemd environments)
+cd "${INSTALL_DIR}"
+export NODE_ENV=production
+export CONFIG_PATH="${INSTALL_DIR}/config/gateway.json"
+exec node dist/index.js
+STARTSCRIPT
+        chmod +x "${INSTALL_DIR}/start-gateway.sh"
+        log_info "Created start script: ${INSTALL_DIR}/start-gateway.sh"
+        return 0
+    fi
+
     SERVICE_FILE="/etc/systemd/system/mcp-gateway.service"
 
     $USE_SUDO tee "$SERVICE_FILE" > /dev/null <<EOF
