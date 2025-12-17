@@ -1,0 +1,38 @@
+# MCP Gateway - Caddy Configuration
+# Replace DOMAIN and EMAIL before deployment
+
+{
+    email EMAIL
+}
+
+DOMAIN {
+    header {
+        X-Content-Type-Options nosniff
+        X-Frame-Options DENY
+        X-XSS-Protection "1; mode=block"
+        Referrer-Policy strict-origin-when-cross-origin
+        -Server
+    }
+
+    handle /sse* {
+        reverse_proxy 127.0.0.1:3000 {
+            transport http {
+                read_timeout 0
+                write_timeout 0
+            }
+            flush_interval -1
+        }
+    }
+
+    handle {
+        reverse_proxy 127.0.0.1:3000
+    }
+
+    log {
+        output file /var/log/caddy/mcp-gateway.log {
+            roll_size 100mb
+            roll_keep 5
+        }
+        format json
+    }
+}
