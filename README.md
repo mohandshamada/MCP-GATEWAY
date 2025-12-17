@@ -42,7 +42,7 @@ A production-ready **Federated Gateway Service** for the Model Context Protocol 
 ```bash
 # Clone and run setup
 git clone https://github.com/mohandshamada/MCP-Gateway.git
-cd MCP-Gateway/mcp-gateway
+cd MCP-Gateway
 sudo ./scripts/setup-ubuntu.sh
 ```
 
@@ -59,17 +59,23 @@ The setup script will:
 For production deployment with HTTPS and domain:
 
 ```bash
-# After basic installation, run the Caddy setup
-sudo ./scripts/setup-caddy.sh
+# Set your domain and email
+export DOMAIN="mcp.example.com"
+export EMAIL="admin@example.com"
+
+# Run setup scripts in order
+sudo ./scripts/setup-ubuntu.sh      # System dependencies
+sudo ./scripts/setup-caddy.sh       # Caddy reverse proxy
+sudo ./scripts/setup-gateway.sh     # MCP Gateway service
 ```
 
-This interactive script will:
-- Install Caddy web server
-- Ask for your domain name
-- Configure automatic SSL via Let's Encrypt
-- Optionally configure OAuth for Claude app
-- Generate ready-to-use client configurations
-- Start all services
+The setup scripts will:
+- Install and configure Caddy web server
+- Set up automatic SSL via Let's Encrypt
+- Create systemd services for both Caddy and MCP Gateway
+- Configure proper log directories and permissions
+
+See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed deployment instructions.
 
 ### Manual Installation
 
@@ -93,14 +99,22 @@ npm start
 
 ### Verify Installation
 
+Use the built-in health check script (automatically reads token from config):
+
+```bash
+./scripts/health-check.sh
+```
+
+Or verify manually:
+
 ```bash
 # Check health (all 5 servers should be healthy)
-curl -H "Authorization: Bearer test-token-12345" http://localhost:3000/admin/health
+curl -H "Authorization: Bearer YOUR_TOKEN" http://localhost:3000/admin/health
 
 # Expected: {"status":"healthy","servers":{"total":5,"healthy":5,"unhealthy":0}}
 
 # List all 71 tools
-curl -H "Authorization: Bearer test-token-12345" http://localhost:3000/admin/tools | jq '.data.total'
+curl -H "Authorization: Bearer YOUR_TOKEN" http://localhost:3000/admin/tools | jq '.data.total'
 
 # Expected: 71
 ```
@@ -297,22 +311,48 @@ curl -H "Authorization: Bearer $TOKEN" https://your-domain.com/admin/client-conf
 
 ## Caddy Reverse Proxy Setup
 
-### Robust Setup (Recommended)
+### Quick Setup (Recommended)
 
-Use the comprehensive Caddy integration script for production deployments:
+Use the simplified setup script:
+
+```bash
+# Set environment variables
+export DOMAIN="mcp.example.com"
+export EMAIL="admin@example.com"
+
+# Run setup
+sudo ./scripts/setup-caddy.sh
+```
+
+The script will:
+- Create caddy system user if needed
+- Install Caddy if not present
+- Set up log directory with proper permissions
+- Set up ACME storage directories for SSL certificates
+- Install and configure Caddyfile from template
+- Validate configuration and start service
+
+### Caddyfile Template
+
+The setup uses `scripts/Caddyfile.template` which includes:
+- Automatic SSL via Let's Encrypt
+- Security headers (X-Frame-Options, XSS protection, etc.)
+- SSE endpoint with streaming support (no timeout)
+- JSON logging with rotation
+
+### Advanced Setup
+
+For more comprehensive setups with OAuth and client configuration generation:
 
 ```bash
 sudo ./scripts/caddy-integration.sh
 ```
 
 This script provides:
-- **Automatic installation** - Installs Caddy if not present
+- **Interactive configuration** - Prompts for domain, OAuth settings
 - **Configuration detection** - Reads MCP Gateway settings automatically
-- **Dynamic Caddyfile generation** - Optimized for SSE, RPC, and Message endpoints
-- **Validation** - Tests configuration before applying
-- **Health checks** - Verifies gateway connectivity
+- **Client config generation** - Creates ready-to-use Claude Desktop configs
 - **Testing suite** - Runs integration tests after setup
-- **Error recovery** - Attempts to fix common issues automatically
 
 #### Available Commands
 
@@ -329,48 +369,28 @@ sudo ./scripts/caddy-integration.sh --test
 # Fix common issues automatically
 sudo ./scripts/caddy-integration.sh --fix
 
-# Generate setup report
-sudo ./scripts/caddy-integration.sh --report
-
 # Non-interactive setup (for automation)
 sudo MCP_DOMAIN=mcp.example.com ./scripts/caddy-integration.sh --non-interactive
-
-# Remove configuration (keeps Caddy installed)
-sudo ./scripts/caddy-integration.sh --uninstall
 ```
-
-#### Environment Variables
-
-For automated/CI deployments:
-
-```bash
-export MCP_DOMAIN=mcp.example.com        # Required
-export MCP_SSL_EMAIL=admin@example.com   # Optional
-export MCP_API_TOKEN=sk-xxxxx            # Optional
-export MCP_GATEWAY_HOST=127.0.0.1        # Optional, auto-detected
-export MCP_GATEWAY_PORT=3000             # Optional, auto-detected
-```
-
-### Quick Setup (Legacy)
-
-For simpler setups with OAuth configuration:
-
-```bash
-sudo ./scripts/setup-caddy.sh
-```
-
-The script will prompt for:
-- **Domain name** - e.g., `mcp.example.com`
-- **SSL email** - For Let's Encrypt notifications
-- **OAuth credentials** (optional) - For Claude app integration
-- **API token** - Can generate a secure one automatically
 
 ### Manual Caddy Configuration
 
 Create `/etc/caddy/Caddyfile`:
 
 ```
+{
+    email admin@example.com
+}
+
 your-domain.com {
+    header {
+        X-Content-Type-Options nosniff
+        X-Frame-Options DENY
+        X-XSS-Protection "1; mode=block"
+        Referrer-Policy strict-origin-when-cross-origin
+        -Server
+    }
+
     # SSE endpoint needs special handling for long-lived connections
     handle /sse* {
         reverse_proxy 127.0.0.1:3000 {
@@ -385,6 +405,14 @@ your-domain.com {
     # All other endpoints
     handle {
         reverse_proxy 127.0.0.1:3000
+    }
+
+    log {
+        output file /var/log/caddy/mcp-gateway.log {
+            roll_size 100mb
+            roll_keep 5
+        }
+        format json
     }
 }
 ```
@@ -714,6 +742,25 @@ curl -X POST https://your-domain.com/admin/servers \
 
 ### Health Monitoring
 
+Use the built-in health check script:
+
+```bash
+# Run health check (reads token from config automatically)
+./scripts/health-check.sh
+
+# With custom domain
+./scripts/health-check.sh mcp.example.com
+```
+
+The health check script:
+- Reads auth token from `config/gateway.json` automatically
+- Tests localhost direct connection
+- Tests HTTPS via Caddy (when domain is configured)
+- Shows status of all registered MCP servers
+- Returns exit code 0 on success, 1 on failure (CI/monitoring friendly)
+
+Or check manually:
+
 ```bash
 # Quick health check
 curl -H "Authorization: Bearer $TOKEN" https://your-domain.com/admin/health
@@ -726,38 +773,51 @@ curl -H "Authorization: Bearer $TOKEN" https://your-domain.com/admin/metrics
 
 ## Ubuntu Server Deployment
 
-### Systemd Service
+### Setup Scripts
 
-The setup script creates `/etc/systemd/system/mcp-gateway.service`:
+Run the setup scripts in order for a complete deployment:
 
 ```bash
-# Start gateway
-sudo systemctl start mcp-gateway
+# 1. System dependencies (Node.js, Playwright browsers, etc.)
+sudo ./scripts/setup-ubuntu.sh
 
-# Enable on boot
-sudo systemctl enable mcp-gateway
+# 2. Caddy reverse proxy (SSL, domain configuration)
+export DOMAIN="mcp.example.com"
+export EMAIL="admin@example.com"
+sudo ./scripts/setup-caddy.sh
 
-# Check status
-sudo systemctl status mcp-gateway
-
-# View logs
-sudo journalctl -u mcp-gateway -f
+# 3. MCP Gateway service (systemd, config validation)
+sudo ./scripts/setup-gateway.sh
 ```
 
-### Caddy Service
+### Systemd Services
+
+Both services are managed via systemd:
 
 ```bash
-# Start Caddy
+# MCP Gateway
+sudo systemctl start mcp-gateway
+sudo systemctl stop mcp-gateway
+sudo systemctl restart mcp-gateway
+sudo systemctl status mcp-gateway
+sudo journalctl -u mcp-gateway -f
+
+# Caddy
 sudo systemctl start caddy
-
-# Enable on boot
-sudo systemctl enable caddy
-
-# Check status
+sudo systemctl stop caddy
+sudo systemctl restart caddy
 sudo systemctl status caddy
-
-# View logs
 sudo journalctl -u caddy -f
+```
+
+### Verify Deployment
+
+```bash
+# Run health check
+./scripts/health-check.sh
+
+# Or manually
+curl -H "Authorization: Bearer $TOKEN" https://your-domain.com/admin/health
 ```
 
 ### File Permissions
@@ -784,18 +844,17 @@ curl -X POST https://your-domain.com/admin/permissions/set \
 ### Directory Structure
 
 ```
-mcp-gateway/
+MCP-GATEWAY/
 ├── config/
-│   └── gateway.json          # Main configuration
+│   ├── gateway.json          # Main configuration
+│   └── gateway.example.json  # Example configuration
 ├── client-configs/           # Generated client configurations
 │   ├── claude-desktop-config.json
 │   ├── sse-client-config.json
 │   └── test-connection.sh
 ├── dist/                     # Compiled JavaScript
+├── docs/                     # Documentation
 ├── logs/                     # Application logs
-│   └── caddy-setup.log       # Caddy integration logs
-├── backups/                  # Configuration backups
-│   └── caddy/                # Caddyfile backups
 ├── mcp-data/                 # MCP tool data (777 permissions)
 │   ├── data/
 │   ├── cache/
@@ -805,11 +864,16 @@ mcp-gateway/
 │   └── workspace/
 ├── node_modules/             # Includes all MCP servers
 ├── scripts/
-│   ├── setup-ubuntu.sh       # Basic setup script
-│   ├── setup-caddy.sh        # Caddy + Domain + OAuth setup
-│   └── caddy-integration.sh  # Robust Caddy integration (recommended)
-├── start-gateway.sh          # Start script (created for non-systemd)
-└── src/                      # TypeScript source
+│   ├── setup-ubuntu.sh       # System dependencies setup
+│   ├── setup-caddy.sh        # Caddy reverse proxy setup
+│   ├── setup-gateway.sh      # MCP Gateway service setup
+│   ├── health-check.sh       # Health check script (reads token from config)
+│   ├── Caddyfile.template    # Caddy configuration template
+│   └── caddy-integration.sh  # Advanced Caddy integration with OAuth
+├── src/                      # TypeScript source
+├── tests/                    # Test files
+├── DEPLOYMENT.md             # Quick deployment guide
+└── README.md                 # This file
 ```
 
 ---
@@ -1042,12 +1106,28 @@ openssl rand -hex 32
 For automation/CI:
 
 ```bash
+# Set required environment variables
+export DOMAIN=mcp.example.com
+export EMAIL=admin@example.com
+
+# Run setup scripts
+sudo ./scripts/setup-ubuntu.sh
+sudo ./scripts/setup-caddy.sh
+sudo ./scripts/setup-gateway.sh
+
+# Verify deployment
+./scripts/health-check.sh
+```
+
+For advanced setups with OAuth:
+
+```bash
 export MCP_DOMAIN=mcp.example.com
 export MCP_SSL_EMAIL=admin@example.com
 export MCP_API_TOKEN=sk-$(openssl rand -hex 32)
 export MCP_OAUTH_ENABLED=false
 
-sudo -E ./scripts/setup-caddy.sh --non-interactive
+sudo -E ./scripts/caddy-integration.sh --non-interactive
 ```
 
 ---
