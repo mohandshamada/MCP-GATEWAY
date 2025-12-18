@@ -99,13 +99,19 @@ npm start
 
 ### Verify Installation
 
-Use the built-in health check script (automatically reads token from config):
+Use the built-in validation script for a comprehensive check:
+
+```bash
+./scripts/validate-installation.sh
+```
+
+Or use the quick health check:
 
 ```bash
 ./scripts/health-check.sh
 ```
 
-Or verify manually:
+Verify manually:
 
 ```bash
 # Check health (all 5 servers should be healthy)
@@ -118,6 +124,15 @@ curl -H "Authorization: Bearer YOUR_TOKEN" http://localhost:3000/admin/tools | j
 
 # Expected: 71
 ```
+
+### Documentation
+
+For detailed guides, see:
+
+- **[Installation Checklist](docs/INSTALLATION-CHECKLIST.md)** - Step-by-step deployment checklist
+- **[Troubleshooting Guide](docs/TROUBLESHOOTING.md)** - Common issues and solutions
+- **[API Reference](docs/API.md)** - Complete API documentation
+- **[Deployment Guide](DEPLOYMENT.md)** - Production deployment instructions
 
 ---
 
@@ -1323,6 +1338,21 @@ npm run build
 ---
 
 ## Troubleshooting
+
+> **For detailed troubleshooting**, see [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)
+
+### Quick Diagnostics
+
+```bash
+# Run comprehensive validation
+./scripts/validate-installation.sh
+
+# Quick health check
+./scripts/health-check.sh
+
+# Pre-deployment check
+./scripts/pre-deploy-check.sh
+```
 
 ### SSL Certificate Issues
 

@@ -1,33 +1,85 @@
 # MCP Gateway - Caddy Configuration
-# Replace DOMAIN and EMAIL before deployment
+# ==================================
+#
+# IMPORTANT: Replace DOMAIN and EMAIL before deployment
+#
+# This configuration includes CRITICAL settings for SSE (Server-Sent Events)
+# streaming. The SSE endpoint requires special handling to work properly.
+#
+# Installation:
+#   1. Copy this file to /etc/caddy/Caddyfile
+#   2. Replace DOMAIN with your domain (e.g., mcp.example.com)
+#   3. Replace EMAIL with your email for Let's Encrypt
+#   4. Run: caddy validate --config /etc/caddy/Caddyfile
+#   5. Run: systemctl reload caddy
+#
+# Troubleshooting SSE issues:
+#   - If clients timeout waiting for events, check flush_interval is set to -1
+#   - If connections drop after 1 event, ensure read_timeout and write_timeout are 0
+#   - Test with: timeout 30 curl -v https://DOMAIN/sse -H "Authorization: Bearer TOKEN"
 
 {
+    # Email for Let's Encrypt certificate notifications
     email EMAIL
+
+    # Optional: Enable debug logging during troubleshooting
+    # debug
 }
 
 DOMAIN {
+    # Security headers (recommended)
     header {
+        # Prevent MIME type sniffing
         X-Content-Type-Options nosniff
+        # Prevent clickjacking
         X-Frame-Options DENY
+        # XSS protection
         X-XSS-Protection "1; mode=block"
+        # Referrer policy
         Referrer-Policy strict-origin-when-cross-origin
+        # Remove server identification
         -Server
     }
 
+    # ============================================================
+    # SSE ENDPOINT - CRITICAL CONFIGURATION
+    # ============================================================
+    # The /sse endpoint requires special handling for streaming.
+    # Without these settings, clients will timeout after receiving
+    # only a single event.
+    # ============================================================
     handle /sse* {
         reverse_proxy 127.0.0.1:3000 {
+            # Transport settings for long-lived connections
             transport http {
+                # Disable read timeout (required for SSE)
+                # Without this, connection closes after default timeout
                 read_timeout 0
+
+                # Disable write timeout (required for SSE)
+                # Without this, slow clients may be disconnected
                 write_timeout 0
             }
+
+            # CRITICAL: Disable response buffering
+            # -1 means flush immediately (required for SSE)
+            # Without this, events are batched and clients timeout
             flush_interval -1
         }
     }
 
+    # ============================================================
+    # ALL OTHER ENDPOINTS
+    # ============================================================
+    # Regular HTTP endpoints don't need special streaming config
     handle {
         reverse_proxy 127.0.0.1:3000
     }
 
+    # ============================================================
+    # LOGGING
+    # ============================================================
+    # JSON logging with rotation for production use
     log {
         output file /var/log/caddy/mcp-gateway.log {
             roll_size 100mb
@@ -36,3 +88,13 @@ DOMAIN {
         format json
     }
 }
+
+# ============================================================
+# OPTIONAL: HTTP to HTTPS redirect
+# ============================================================
+# Uncomment if you want explicit redirect handling
+# (Caddy does this automatically when using HTTPS)
+#
+# http://DOMAIN {
+#     redir https://DOMAIN{uri} permanent
+# }
