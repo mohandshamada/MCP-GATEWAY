@@ -1,0 +1,28 @@
+# MCP Gateway OAuth SSE Configuration
+# Generated: Thu Dec 18 05:00:02 UTC 2025
+# Domain: mcp.mshousha.uk
+
+## OAuth Credentials
+OAuth Token URL: https://mcp.mshousha.uk/oauth/token
+Client ID: mcp-client
+Client Secret: mcp-secret-key-change-in-production
+Grant Type: client_credentials
+
+## Current Token (expires in 3600s)
+Access Token: 040b5477dd6615bef7d83fe7fc6d4fda495397e6e156c8d246f5c69bf36fd6ab
+
+## SSE Endpoint
+SSE URL: https://mcp.mshousha.uk/sse
+SSE URL with token: https://mcp.mshousha.uk/sse?token=040b5477dd6615bef7d83fe7fc6d4fda495397e6e156c8d246f5c69bf36fd6ab
+
+## Claude Desktop Configuration
+https://mcp.mshousha.uk/sse
+
+Headers:
+  Authorization: Bearer 040b5477dd6615bef7d83fe7fc6d4fda495397e6e156c8d246f5c69bf36fd6ab
+
+## Get New Token Command
+curl -X POST https://mcp.mshousha.uk/oauth/token \
+  -d "grant_type=client_credentials" \
+  -d "client_id=mcp-client" \
+  -d "client_secret=mcp-secret-key-change-in-production"
