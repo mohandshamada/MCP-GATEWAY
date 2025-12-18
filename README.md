@@ -428,16 +428,180 @@ sudo systemctl start caddy
 
 ## OAuth Configuration
 
-MCP Gateway supports OAuth at two levels:
+MCP Gateway includes a **built-in OAuth 2.0 authorization server** and also supports connecting to external OAuth providers:
 
-| Level | Purpose | Use Case |
-|-------|---------|----------|
-| **Gateway OAuth** | Authenticate clients connecting to the gateway | Claude App, external clients |
-| **Server OAuth** | Authenticate gateway to remote MCP servers | Remote SSE servers requiring OAuth |
+| Feature | Description |
+|---------|-------------|
+| **Built-in OAuth Server** | Issue tokens directly from the gateway - no external provider needed |
+| **Gateway OAuth** | Authenticate clients connecting to the gateway |
+| **Server OAuth** | Authenticate gateway to remote MCP servers |
+
+---
+
+### Built-in OAuth Server (Recommended)
+
+The gateway includes a complete OAuth 2.0 authorization server. This is the easiest way to get OAuth working.
+
+#### Enable the Built-in OAuth Server
+
+Edit `config/gateway.json`:
+
+```json
+{
+  "oauthServer": {
+    "enabled": true,
+    "tokenExpiresIn": 3600,
+    "refreshTokenExpiresIn": 86400,
+    "clients": [
+      {
+        "clientId": "mcp-client",
+        "clientSecret": "your-secure-secret-here",
+        "name": "MCP Gateway Client",
+        "scopes": ["mcp:read", "mcp:write", "mcp:admin"],
+        "grantTypes": ["client_credentials", "password", "refresh_token"]
+      }
+    ]
+  }
+}
+```
+
+#### Get an OAuth Token
+
+```bash
+# Using client credentials grant
+curl -X POST http://localhost:3000/oauth/token \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "grant_type=client_credentials" \
+  -d "client_id=mcp-client" \
+  -d "client_secret=your-secure-secret-here"
+
+# Response:
+{
+  "access_token": "abc123def456...",
+  "token_type": "Bearer",
+  "expires_in": 3600,
+  "scope": "mcp:read mcp:write mcp:admin"
+}
+```
+
+#### Ready-to-Use SSE URL with OAuth Token
+
+After getting a token, use it to connect:
+
+```bash
+# Get token and save it
+TOKEN=$(curl -s -X POST http://localhost:3000/oauth/token \
+  -d "grant_type=client_credentials" \
+  -d "client_id=mcp-client" \
+  -d "client_secret=your-secure-secret-here" | jq -r '.access_token')
+
+# Use token to access SSE endpoint
+curl -N -H "Authorization: Bearer $TOKEN" http://localhost:3000/sse
+
+# Or with domain
+curl -N -H "Authorization: Bearer $TOKEN" https://mcp.example.com/sse
+```
+
+#### Claude Desktop Configuration with OAuth
+
+```json
+{
+  "mcpServers": {
+    "mcp-gateway": {
+      "url": "https://mcp.example.com/sse",
+      "transport": "sse",
+      "headers": {
+        "Authorization": "Bearer YOUR_OAUTH_TOKEN"
+      }
+    }
+  }
+}
+```
+
+#### Built-in OAuth Server Endpoints
+
+| Endpoint | Method | Auth Required | Description |
+|----------|--------|---------------|-------------|
+| `POST /oauth/token` | POST | No | Get access token |
+| `POST /oauth/revoke` | POST | No | Revoke a token |
+| `POST /oauth/validate` | POST | No | Validate a token |
+| `GET /.well-known/openid-configuration` | GET | No | OAuth discovery |
+| `GET /oauth/info` | GET | Yes | Server info and stats |
+| `POST /oauth/clients` | POST | Yes | Register new client |
+| `DELETE /oauth/clients/:id` | DELETE | Yes | Remove client |
+
+#### Supported Grant Types
+
+| Grant Type | Use Case | Example |
+|------------|----------|---------|
+| `client_credentials` | Server-to-server, API access | `grant_type=client_credentials` |
+| `password` | User login (with username/password) | `grant_type=password&username=user&password=pass` |
+| `refresh_token` | Refresh expired tokens | `grant_type=refresh_token&refresh_token=xxx` |
+
+#### Register a New OAuth Client via API
+
+```bash
+curl -X POST http://localhost:3000/oauth/clients \
+  -H "Authorization: Bearer YOUR_ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "clientId": "my-app",
+    "clientSecret": "my-app-secret",
+    "name": "My Application",
+    "scopes": ["mcp:read", "mcp:write"],
+    "grantTypes": ["client_credentials"]
+  }'
+```
+
+#### Check OAuth Server Status
+
+```bash
+curl -H "Authorization: Bearer YOUR_TOKEN" http://localhost:3000/oauth/info
+
+# Response:
+{
+  "enabled": true,
+  "stats": {
+    "clients": 1,
+    "activeTokens": 5,
+    "refreshTokens": 2
+  },
+  "clients": [
+    {
+      "clientId": "mcp-client",
+      "name": "MCP Gateway Client",
+      "scopes": ["mcp:read", "mcp:write", "mcp:admin"],
+      "grantTypes": ["client_credentials", "password", "refresh_token"]
+    }
+  ]
+}
+```
+
+#### OAuth Configuration Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `enabled` | boolean | `false` | Enable the built-in OAuth server |
+| `issuer` | string | auto | OAuth issuer URL (auto-detected from request) |
+| `tokenExpiresIn` | number | `3600` | Access token lifetime in seconds |
+| `refreshTokenExpiresIn` | number | `86400` | Refresh token lifetime in seconds |
+| `clients` | array | `[]` | Pre-registered OAuth clients |
+
+#### OAuth Client Configuration
+
+| Option | Type | Required | Description |
+|--------|------|----------|-------------|
+| `clientId` | string | Yes | Unique client identifier |
+| `clientSecret` | string | Yes | Client secret for authentication |
+| `name` | string | Yes | Human-readable client name |
+| `scopes` | string[] | No | Allowed scopes (default: all) |
+| `grantTypes` | string[] | No | Allowed grant types (default: client_credentials) |
+
+---
 
 ### Quick Start: Test OAuth Server
 
-A test OAuth server is included for development and testing:
+A standalone test OAuth server is also included for development:
 
 ```bash
 # Start the test OAuth server on port 9000
@@ -476,7 +640,7 @@ curl -X POST http://localhost:9000/oauth/token \
 
 ### Generate Authentication Token
 
-Use the token generator script to create new tokens:
+Use the token generator script to create new static tokens:
 
 ```bash
 # Generate token with your domain (adds to config, prints ready URLs)
@@ -489,9 +653,9 @@ Use the token generator script to create new tokens:
 # - curl test command
 ```
 
-### Enable Gateway OAuth
+### Enable Gateway OAuth (External Provider)
 
-Edit `config/gateway.json`:
+For using an external OAuth provider, edit `config/gateway.json`:
 
 ```json
 {
