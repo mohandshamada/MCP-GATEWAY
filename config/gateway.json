@@ -6,14 +6,14 @@
     "version": "1.0.0"
   },
   "domain": {
-    "domain": null,
-    "publicUrl": null,
+    "domain": "mcp.mshousha.uk",
+    "publicUrl": "https://mcp.mshousha.uk",
     "ssl": {
-      "enabled": false,
-      "email": null
+      "enabled": true,
+      "email": "admin@mshousha.uk"
     },
     "proxy": {
-      "enabled": false,
+      "enabled": true,
       "type": "caddy"
     }
   },

@@ -23,17 +23,35 @@ BLUE='\033[0;34m'
 CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
-# Domain from argument or default to localhost
-DOMAIN="${1:-localhost:3000}"
+# Try to get domain from config file first
+CONFIG_DOMAIN=$(jq -r '.domain.domain // empty' "$CONFIG_FILE" 2>/dev/null)
+CONFIG_PUBLIC_URL=$(jq -r '.domain.publicUrl // empty' "$CONFIG_FILE" 2>/dev/null)
+GATEWAY_PORT=$(jq -r '.gateway.port // 3000' "$CONFIG_FILE" 2>/dev/null)
 
-# Determine protocol
-if [[ "$DOMAIN" == "localhost"* ]] || [[ "$DOMAIN" == "127.0.0.1"* ]]; then
-    PROTOCOL="http"
-    BASE_URL="${PROTOCOL}://${DOMAIN}"
+# Local URL for API calls (always use localhost)
+LOCAL_URL="http://localhost:${GATEWAY_PORT}"
+
+# Domain priority: 1) command line arg, 2) config publicUrl, 3) config domain, 4) localhost
+if [ -n "$1" ]; then
+    DOMAIN="$1"
+    if [[ "$DOMAIN" == "localhost"* ]] || [[ "$DOMAIN" == "127.0.0.1"* ]]; then
+        PUBLIC_URL="http://${DOMAIN}"
+    else
+        PUBLIC_URL="https://${DOMAIN}"
+    fi
+elif [ -n "$CONFIG_PUBLIC_URL" ] && [ "$CONFIG_PUBLIC_URL" != "null" ]; then
+    PUBLIC_URL="$CONFIG_PUBLIC_URL"
+    DOMAIN=$(echo "$PUBLIC_URL" | sed 's|https://||' | sed 's|http://||')
+elif [ -n "$CONFIG_DOMAIN" ] && [ "$CONFIG_DOMAIN" != "null" ]; then
+    DOMAIN="$CONFIG_DOMAIN"
+    PUBLIC_URL="https://${DOMAIN}"
 else
-    PROTOCOL="https"
-    BASE_URL="${PROTOCOL}://${DOMAIN}"
+    DOMAIN="localhost:${GATEWAY_PORT}"
+    PUBLIC_URL="http://${DOMAIN}"
 fi
+
+# BASE_URL for display purposes (public URL)
+BASE_URL="$PUBLIC_URL"
 
 echo -e "${CYAN}========================================${NC}"
 echo -e "${CYAN}   MCP Gateway OAuth Link Generator${NC}"
@@ -69,10 +87,10 @@ echo -e "${BLUE}Base URL:${NC} $BASE_URL"
 echo -e "${BLUE}Client ID:${NC} $CLIENT_ID"
 echo ""
 
-# Request OAuth token
-echo -e "${YELLOW}Requesting OAuth token...${NC}"
+# Request OAuth token (use local URL for API call)
+echo -e "${YELLOW}Requesting OAuth token from ${LOCAL_URL}...${NC}"
 
-TOKEN_RESPONSE=$(curl -s -X POST "${BASE_URL}/oauth/token" \
+TOKEN_RESPONSE=$(curl -s -X POST "${LOCAL_URL}/oauth/token" \
     -H "Content-Type: application/x-www-form-urlencoded" \
     -d "grant_type=client_credentials" \
     -d "client_id=${CLIENT_ID}" \
