@@ -19,7 +19,11 @@
   },
   "auth": {
     "enabled": true,
-    "tokens": ["test-token-12345", "1edb91417b46c6d90e5e5a85e4237311ec5b5402a8bf738abba23bb85f22aae6"],
+    "tokens": [
+      "test-token-12345",
+      "1edb91417b46c6d90e5e5a85e4237311ec5b5402a8bf738abba23bb85f22aae6",
+      "f007b7d63b4b42522115e1757ef9d5290d19a23c2b69bb15aed992686324b3c8"
+    ],
     "oauth": {
       "enabled": false
     }
@@ -29,7 +33,13 @@
       "id": "filesystem",
       "transport": "stdio",
       "command": "node",
-      "args": ["node_modules/@modelcontextprotocol/server-filesystem/dist/index.js", "/home", "/tmp", "/var", "/root"],
+      "args": [
+        "node_modules/@modelcontextprotocol/server-filesystem/dist/index.js",
+        "/home",
+        "/tmp",
+        "/var",
+        "/root"
+      ],
       "enabled": true,
       "lazyLoad": false,
       "timeout": 60000,
@@ -40,7 +50,9 @@
       "id": "memory",
       "transport": "stdio",
       "command": "node",
-      "args": ["node_modules/@modelcontextprotocol/server-memory/dist/index.js"],
+      "args": [
+        "node_modules/@modelcontextprotocol/server-memory/dist/index.js"
+      ],
       "enabled": true,
       "lazyLoad": false,
       "timeout": 60000,
@@ -51,7 +63,9 @@
       "id": "sequential-thinking",
       "transport": "stdio",
       "command": "node",
-      "args": ["node_modules/@modelcontextprotocol/server-sequential-thinking/dist/index.js"],
+      "args": [
+        "node_modules/@modelcontextprotocol/server-sequential-thinking/dist/index.js"
+      ],
       "enabled": true,
       "lazyLoad": false,
       "timeout": 60000,
@@ -62,7 +76,9 @@
       "id": "desktop-commander",
       "transport": "stdio",
       "command": "node",
-      "args": ["node_modules/@wonderwhy-er/desktop-commander/dist/index.js"],
+      "args": [
+        "node_modules/@wonderwhy-er/desktop-commander/dist/index.js"
+      ],
       "enabled": true,
       "lazyLoad": false,
       "timeout": 60000,
@@ -77,7 +93,9 @@
       "id": "playwright",
       "transport": "stdio",
       "command": "node",
-      "args": ["node_modules/@playwright/mcp/cli.js"],
+      "args": [
+        "node_modules/@playwright/mcp/cli.js"
+      ],
       "enabled": true,
       "lazyLoad": false,
       "timeout": 120000,
