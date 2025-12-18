@@ -96,6 +96,32 @@ export const GatewayOAuthSchema = z.object({
 export type GatewayOAuth = z.infer<typeof GatewayOAuthSchema>;
 
 /**
+ * Schema for OAuth client configuration (built-in server)
+ */
+export const OAuthClientSchema = z.object({
+  clientId: z.string().min(1),
+  clientSecret: z.string().min(1),
+  name: z.string().min(1),
+  scopes: z.array(z.string()).default(['mcp:read', 'mcp:write']),
+  grantTypes: z.array(z.enum(['client_credentials', 'password', 'refresh_token'])).default(['client_credentials']),
+});
+
+export type OAuthClientDef = z.infer<typeof OAuthClientSchema>;
+
+/**
+ * Schema for built-in OAuth server configuration
+ */
+export const OAuthServerSchema = z.object({
+  enabled: z.boolean().default(false),
+  issuer: z.string().optional(),
+  tokenExpiresIn: z.number().min(60).max(86400).default(3600), // 1 hour default
+  refreshTokenExpiresIn: z.number().min(3600).max(2592000).default(86400), // 24 hours default
+  clients: z.array(OAuthClientSchema).default([]),
+});
+
+export type OAuthServerDef = z.infer<typeof OAuthServerSchema>;
+
+/**
  * Schema for domain/proxy configuration
  */
 export const DomainConfigSchema = z.object({
@@ -129,6 +155,7 @@ export const GatewayConfigSchema = z.object({
     tokens: z.array(z.string()).default([]),
     oauth: GatewayOAuthSchema.default({}),
   }),
+  oauthServer: OAuthServerSchema.default({}),
   servers: z.array(ServerConfigSchema),
   settings: z.object({
     requestTimeout: z.number().min(1000).max(300000).default(60000),
