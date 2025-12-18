@@ -283,16 +283,32 @@ export class Gateway extends EventEmitter {
       gatewayCapabilities.prompts = {};
     }
 
+    // Build the icon URL based on configuration
+    let iconUrl: string | undefined;
+    if (this.config.domain?.publicUrl) {
+      iconUrl = `${this.config.domain.publicUrl}/icon.svg`;
+    } else if (this.config.domain?.domain) {
+      const protocol = this.config.domain.ssl?.enabled ? 'https' : 'http';
+      iconUrl = `${protocol}://${this.config.domain.domain}/icon.svg`;
+    }
+
+    // Build serverInfo with optional iconUrl
+    const serverInfo: Record<string, string> = {
+      name: this.config.gateway.name,
+      version: this.config.gateway.version,
+    };
+
+    if (iconUrl) {
+      serverInfo.iconUrl = iconUrl;
+    }
+
     return {
       jsonrpc: '2.0',
       id,
       result: {
         protocolVersion: PROTOCOL_VERSION,
         capabilities: gatewayCapabilities,
-        serverInfo: {
-          name: this.config.gateway.name,
-          version: this.config.gateway.version,
-        },
+        serverInfo,
         instructions: `This is a federated MCP gateway. Tools, resources, and prompts are namespaced with server IDs using the format: serverId${NAMESPACE_SEPARATOR}name. Available servers: ${this.registry.getServerIds().join(', ')}`,
       },
     };
