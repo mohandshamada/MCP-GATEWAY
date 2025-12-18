@@ -99,8 +99,10 @@ export class OAuthClient {
 
     // Some OAuth servers require Basic auth for client credentials
     if (this.config.grantType === 'client_credentials') {
+      const resolvedClientId = this.resolveEnvVar(this.config.clientId);
+      const resolvedClientSecret = this.resolveEnvVar(this.config.clientSecret);
       const credentials = Buffer.from(
-        `${this.config.clientId}:${this.config.clientSecret}`
+        `${resolvedClientId}:${resolvedClientSecret}`
       ).toString('base64');
       headers['Authorization'] = `Basic ${credentials}`;
     }
@@ -195,8 +197,16 @@ export class OAuthClient {
    * Supports ${VAR_NAME} syntax
    */
   private resolveEnvVar(value: string): string {
-    return value.replace(/\$\{([^}]+)\}/g, (_, envVar) => {
-      return process.env[envVar] || '';
+    return value.replace(/\$\{([^}]+)\}/g, (_match, envVar) => {
+      const envValue = process.env[envVar];
+      if (envValue === undefined) {
+        this.log.warn(
+          { envVar, serverId: this.serverId },
+          `Environment variable "${envVar}" not found, using empty string`
+        );
+        return '';
+      }
+      return envValue;
     });
   }
 

@@ -84,7 +84,7 @@ export class SSEAdapter extends BaseAdapter {
     // Add OAuth authorization header if configured
     if (this.oauthClient) {
       try {
-        headers['authorization'] = await this.oauthClient.getAuthorizationHeader();
+        headers['Authorization'] = await this.oauthClient.getAuthorizationHeader();
         this.logger.debug('OAuth authorization header added');
       } catch (error) {
         this.logger.error({ error }, 'Failed to get OAuth token');
@@ -109,8 +109,16 @@ export class SSEAdapter extends BaseAdapter {
    * Resolve environment variable references in config values
    */
   private resolveEnvVar(value: string): string {
-    return value.replace(/\$\{([^}]+)\}/g, (_, envVar) => {
-      return process.env[envVar] || '';
+    return value.replace(/\$\{([^}]+)\}/g, (_match, envVar) => {
+      const envValue = process.env[envVar];
+      if (envValue === undefined) {
+        this.logger.warn(
+          { envVar, serverId: this.config.id },
+          `Environment variable "${envVar}" not found, using empty string`
+        );
+        return '';
+      }
+      return envValue;
     });
   }
 
