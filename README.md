@@ -428,9 +428,70 @@ sudo systemctl start caddy
 
 ## OAuth Configuration
 
-### Enable OAuth
+MCP Gateway supports OAuth at two levels:
 
-Edit `config/gateway.json` or use the setup script:
+| Level | Purpose | Use Case |
+|-------|---------|----------|
+| **Gateway OAuth** | Authenticate clients connecting to the gateway | Claude App, external clients |
+| **Server OAuth** | Authenticate gateway to remote MCP servers | Remote SSE servers requiring OAuth |
+
+### Quick Start: Test OAuth Server
+
+A test OAuth server is included for development and testing:
+
+```bash
+# Start the test OAuth server on port 9000
+node scripts/oauth-server.cjs 9000
+
+# Test credentials:
+# Client ID: mcp-gateway-client
+# Client Secret: mcp-gateway-secret
+```
+
+**Get a token:**
+
+```bash
+curl -X POST http://localhost:9000/oauth/token \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "grant_type=client_credentials" \
+  -d "client_id=mcp-gateway-client" \
+  -d "client_secret=mcp-gateway-secret"
+
+# Response:
+# {
+#   "access_token": "abc123...",
+#   "token_type": "Bearer",
+#   "expires_in": 3600,
+#   "scope": "mcp:read mcp:write mcp:admin"
+# }
+```
+
+**Test OAuth server endpoints:**
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/oauth/token` | POST | Token endpoint (client_credentials, password, refresh_token) |
+| `/.well-known/openid-configuration` | GET | OAuth discovery endpoint |
+| `/health` | GET | Health check |
+
+### Generate Authentication Token
+
+Use the token generator script to create new tokens:
+
+```bash
+# Generate token with your domain (adds to config, prints ready URLs)
+./scripts/generate-token.sh mcp.example.com
+
+# Output includes:
+# - Generated token
+# - Ready-to-use SSE URLs with token
+# - Claude Desktop config snippet
+# - curl test command
+```
+
+### Enable Gateway OAuth
+
+Edit `config/gateway.json`:
 
 ```json
 {
@@ -449,6 +510,125 @@ Edit `config/gateway.json` or use the setup script:
   }
 }
 ```
+
+### Connect to OAuth-Protected Remote MCP Servers
+
+Configure a remote SSE server that requires OAuth:
+
+```json
+{
+  "servers": [
+    {
+      "id": "remote-oauth-server",
+      "transport": "sse",
+      "url": "https://api.example.com/mcp/sse",
+      "oauth": {
+        "clientId": "${API_CLIENT_ID}",
+        "clientSecret": "${API_CLIENT_SECRET}",
+        "tokenUrl": "https://auth.example.com/oauth/token",
+        "grantType": "client_credentials",
+        "scopes": ["mcp:read", "mcp:write"],
+        "audience": "https://api.example.com",
+        "refreshBeforeExpiry": 60
+      },
+      "enabled": true
+    }
+  ]
+}
+```
+
+Set environment variables:
+
+```bash
+export API_CLIENT_ID="your-client-id"
+export API_CLIENT_SECRET="your-client-secret"
+```
+
+### Supported OAuth Grant Types
+
+| Grant Type | Use Case | Required Config |
+|------------|----------|-----------------|
+| `client_credentials` | Server-to-server | clientId, clientSecret, tokenUrl |
+| `password` | User credentials | + username, password |
+| `refresh_token` | Token refresh | Automatic when refresh_token provided |
+
+### Production OAuth Providers
+
+#### Auth0 (Recommended for ease of setup)
+
+1. Create an account at [auth0.com](https://auth0.com)
+2. Create an API and Application
+3. Configure:
+
+```json
+{
+  "oauth": {
+    "clientId": "YOUR_AUTH0_CLIENT_ID",
+    "clientSecret": "YOUR_AUTH0_CLIENT_SECRET",
+    "tokenUrl": "https://YOUR_DOMAIN.auth0.com/oauth/token",
+    "audience": "https://your-api.example.com",
+    "grantType": "client_credentials"
+  }
+}
+```
+
+#### Keycloak (Self-hosted, free)
+
+```bash
+# Install with Docker
+docker run -p 8080:8080 \
+  -e KEYCLOAK_ADMIN=admin \
+  -e KEYCLOAK_ADMIN_PASSWORD=admin \
+  quay.io/keycloak/keycloak:latest start-dev
+
+# Access: http://localhost:8080
+# Create realm, client, and configure:
+```
+
+```json
+{
+  "oauth": {
+    "clientId": "mcp-gateway",
+    "clientSecret": "YOUR_CLIENT_SECRET",
+    "tokenUrl": "http://localhost:8080/realms/myrealm/protocol/openid-connect/token",
+    "grantType": "client_credentials"
+  }
+}
+```
+
+#### AWS Cognito
+
+```json
+{
+  "oauth": {
+    "clientId": "YOUR_COGNITO_CLIENT_ID",
+    "clientSecret": "YOUR_COGNITO_CLIENT_SECRET",
+    "tokenUrl": "https://YOUR_POOL.auth.REGION.amazoncognito.com/oauth2/token",
+    "grantType": "client_credentials"
+  }
+}
+```
+
+### OAuth Configuration Options
+
+| Option | Type | Required | Description |
+|--------|------|----------|-------------|
+| `clientId` | string | Yes | OAuth client ID (supports `${ENV_VAR}` syntax) |
+| `clientSecret` | string | Yes | OAuth client secret (supports `${ENV_VAR}` syntax) |
+| `tokenUrl` | string | Yes | Token endpoint URL |
+| `grantType` | string | No | `client_credentials` (default), `password`, `refresh_token` |
+| `scopes` | string[] | No | OAuth scopes to request |
+| `audience` | string | No | API audience (Auth0, etc.) |
+| `username` | string | No | Username (password grant only) |
+| `password` | string | No | Password (password grant only) |
+| `refreshBeforeExpiry` | number | No | Seconds before expiry to refresh (default: 60) |
+
+### Example OAuth Configuration File
+
+See `config/gateway.oauth-example.json` for a complete example with:
+- Gateway-level OAuth for client authentication
+- Remote server OAuth configuration
+- Environment variable references
 
 ### Domain Configuration
 
@@ -868,6 +1048,8 @@ MCP-GATEWAY/
 │   ├── setup-caddy.sh        # Caddy reverse proxy setup
 │   ├── setup-gateway.sh      # MCP Gateway service setup
 │   ├── health-check.sh       # Health check script (reads token from config)
+│   ├── generate-token.sh     # Generate auth tokens with ready-to-use URLs
+│   ├── oauth-server.cjs      # Test OAuth authorization server
 │   ├── Caddyfile.template    # Caddy configuration template
 │   └── caddy-integration.sh  # Advanced Caddy integration with OAuth
 ├── src/                      # TypeScript source
