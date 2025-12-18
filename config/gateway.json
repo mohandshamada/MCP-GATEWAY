@@ -19,7 +19,7 @@
   },
   "auth": {
     "enabled": true,
-    "tokens": ["test-token-12345"],
+    "tokens": ["test-token-12345", "1edb91417b46c6d90e5e5a85e4237311ec5b5402a8bf738abba23bb85f22aae6"],
     "oauth": {
       "enabled": false
     }
