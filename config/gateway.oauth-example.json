@@ -1,0 +1,83 @@
+{
+  "gateway": {
+    "host": "0.0.0.0",
+    "port": 3000,
+    "name": "MCP Gateway with OAuth",
+    "version": "1.0.0"
+  },
+  "domain": {
+    "domain": "mcp.example.com",
+    "publicUrl": "https://mcp.example.com",
+    "ssl": {
+      "enabled": true,
+      "email": "admin@example.com"
+    },
+    "proxy": {
+      "enabled": true,
+      "type": "caddy"
+    }
+  },
+  "auth": {
+    "enabled": true,
+    "tokens": ["${MCP_GATEWAY_TOKEN}"],
+    "oauth": {
+      "enabled": true,
+      "clientId": "${OAUTH_CLIENT_ID}",
+      "clientSecret": "${OAUTH_CLIENT_SECRET}",
+      "issuer": "https://auth.example.com",
+      "authorizationUrl": "https://auth.example.com/authorize",
+      "tokenUrl": "https://auth.example.com/token",
+      "scopes": ["mcp:read", "mcp:write", "mcp:admin"]
+    }
+  },
+  "servers": [
+    {
+      "id": "local-filesystem",
+      "transport": "stdio",
+      "command": "node",
+      "args": ["node_modules/@modelcontextprotocol/server-filesystem/dist/index.js", "/home"],
+      "enabled": true
+    },
+    {
+      "id": "remote-api-server",
+      "transport": "sse",
+      "url": "https://api.example.com/mcp/sse",
+      "oauth": {
+        "clientId": "${API_CLIENT_ID}",
+        "clientSecret": "${API_CLIENT_SECRET}",
+        "tokenUrl": "https://auth.example.com/oauth/token",
+        "grantType": "client_credentials",
+        "scopes": ["api:read", "api:write"],
+        "audience": "https://api.example.com",
+        "refreshBeforeExpiry": 60
+      },
+      "enabled": true
+    },
+    {
+      "id": "remote-with-password-grant",
+      "transport": "sse",
+      "url": "https://legacy-api.example.com/mcp/sse",
+      "oauth": {
+        "clientId": "${LEGACY_CLIENT_ID}",
+        "clientSecret": "${LEGACY_CLIENT_SECRET}",
+        "tokenUrl": "https://legacy-auth.example.com/token",
+        "grantType": "password",
+        "username": "${LEGACY_USERNAME}",
+        "password": "${LEGACY_PASSWORD}",
+        "scopes": ["read", "write"]
+      },
+      "enabled": false
+    }
+  ],
+  "settings": {
+    "requestTimeout": 120000,
+    "enableHealthChecks": true,
+    "healthCheckInterval": 30000,
+    "enableHotReload": true,
+    "enableRateLimiting": true,
+    "rateLimit": {
+      "windowMs": 60000,
+      "maxRequests": 200
+    }
+  }
+}
