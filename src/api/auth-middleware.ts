@@ -1,5 +1,6 @@
 import type { FastifyRequest, FastifyReply, FastifyInstance, HookHandlerDoneFunction } from 'fastify';
 import { createChildLogger, type Logger } from '../utils/logger.js';
+import { getOAuthServer } from '../oauth/oauth-server.js';
 
 /**
  * Auth middleware configuration
@@ -48,7 +49,7 @@ function extractBearerToken(authHeader: string | undefined): string | null {
 }
 
 /**
- * Validate a token against the configured tokens
+ * Validate a token against configured tokens and OAuth server
  */
 function validateToken(token: string): { valid: boolean; isAdmin: boolean } {
   if (!authConfig) {
@@ -63,6 +64,17 @@ function validateToken(token: string): { valid: boolean; isAdmin: boolean } {
   // Check regular tokens
   if (authConfig.tokens.includes(token)) {
     return { valid: true, isAdmin: false };
+  }
+
+  // Check OAuth server tokens
+  const oauthServer = getOAuthServer();
+  if (oauthServer) {
+    const tokenInfo = oauthServer.validateToken(token);
+    if (tokenInfo) {
+      // Check if token has admin scope
+      const isAdmin = tokenInfo.scopes.includes('mcp:admin');
+      return { valid: true, isAdmin };
+    }
   }
 
   return { valid: false, isAdmin: false };
@@ -84,6 +96,16 @@ function extractQueryToken(query: unknown): string | null {
 }
 
 /**
+ * Public OAuth endpoints that don't require authentication
+ */
+const PUBLIC_OAUTH_PATHS = [
+  '/oauth/token',
+  '/oauth/validate',
+  '/oauth/revoke',
+  '/.well-known/openid-configuration',
+];
+
+/**
  * Authentication middleware for Fastify
  *
  * Token sources (checked in order):
@@ -100,6 +122,13 @@ export function authMiddleware(
 ): void {
   // Skip auth if disabled
   if (!authConfig?.enabled) {
+    done();
+    return;
+  }
+
+  // Skip auth for public OAuth endpoints
+  const urlPath = request.url.split('?')[0]; // Remove query params
+  if (PUBLIC_OAUTH_PATHS.includes(urlPath)) {
     done();
     return;
   }
@@ -147,6 +176,13 @@ export function adminMiddleware(
   reply: FastifyReply,
   done: HookHandlerDoneFunction
 ): void {
+  // Skip for public OAuth endpoints
+  const urlPath = request.url.split('?')[0];
+  if (PUBLIC_OAUTH_PATHS.includes(urlPath)) {
+    done();
+    return;
+  }
+
   // First ensure regular auth passes
   if (authConfig?.enabled && !request.authToken) {
     reply.status(401).send({

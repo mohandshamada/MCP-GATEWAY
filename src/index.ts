@@ -1,5 +1,6 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
+import formbody from '@fastify/formbody';
 import { randomUUID } from 'crypto';
 import { createGateway, resetGateway } from './core/gateway.js';
 import { resetRegistry } from './core/registry.js';
@@ -20,6 +21,7 @@ import {
   initializePermissions,
   ensureMcpToolDirectories,
 } from './utils/permissions.js';
+import { initOAuthServer, getOAuthServer, registerOAuthRoutes } from './oauth/index.js';
 
 /**
  * Default configuration path
@@ -40,6 +42,18 @@ async function createServer(config: GatewayConfig): Promise<ReturnType<typeof Fa
     origin: true,
     credentials: true,
   });
+
+  // Register form body parser for OAuth token endpoint
+  await fastify.register(formbody);
+
+  // Register OAuth routes BEFORE auth middleware (token endpoint must be public)
+  if (config.oauthServer?.enabled) {
+    registerOAuthRoutes(fastify);
+    logger.info(
+      { clients: config.oauthServer.clients?.length || 0 },
+      'OAuth server routes registered'
+    );
+  }
 
   // Initialize and register rate limiting
   if (config.settings.enableRateLimiting) {
@@ -174,6 +188,21 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
+  // Initialize OAuth server if enabled
+  if (config.oauthServer?.enabled) {
+    initOAuthServer({
+      enabled: true,
+      issuer: config.oauthServer.issuer,
+      tokenExpiresIn: config.oauthServer.tokenExpiresIn,
+      refreshTokenExpiresIn: config.oauthServer.refreshTokenExpiresIn,
+      clients: config.oauthServer.clients,
+    });
+    logger.info(
+      { clients: config.oauthServer.clients?.length || 0 },
+      'Built-in OAuth server initialized'
+    );
+  }
+
   // Create and initialize the gateway
   const gateway = createGateway(config);
   await gateway.initialize();
@@ -188,6 +217,13 @@ async function main(): Promise<void> {
     try {
       await server.close();
       logger.info('HTTP server closed');
+
+      // Stop OAuth server if running
+      const oauthServer = getOAuthServer();
+      if (oauthServer) {
+        oauthServer.stop();
+        logger.info('OAuth server stopped');
+      }
 
       shutdownRateLimiter();
       await resetGateway();
@@ -243,21 +279,30 @@ async function main(): Promise<void> {
     );
 
     // Log registered endpoints
-    logger.info(
-      {
-        endpoints: [
-          'GET  /sse       - SSE connection endpoint',
-          'POST /message   - JSON-RPC message endpoint',
-          'POST /rpc       - Direct JSON-RPC endpoint',
-          'GET  /admin/status    - Gateway status',
-          'GET  /admin/servers   - List servers',
-          'POST /admin/servers   - Register server',
-          'DELETE /admin/servers/:id - Remove server',
-          'GET  /admin/health    - Health check',
-        ],
-      },
-      'Available endpoints'
-    );
+    const endpoints = [
+      'GET  /sse       - SSE connection endpoint',
+      'POST /message   - JSON-RPC message endpoint',
+      'POST /rpc       - Direct JSON-RPC endpoint',
+      'GET  /admin/status    - Gateway status',
+      'GET  /admin/servers   - List servers',
+      'POST /admin/servers   - Register server',
+      'DELETE /admin/servers/:id - Remove server',
+      'GET  /admin/health    - Health check',
+    ];
+
+    // Add OAuth endpoints if enabled
+    if (config.oauthServer?.enabled) {
+      endpoints.push(
+        'POST /oauth/token     - OAuth token endpoint',
+        'POST /oauth/revoke    - Revoke token',
+        'GET  /oauth/info      - OAuth server info',
+        'POST /oauth/clients   - Register OAuth client',
+        'DELETE /oauth/clients/:id - Remove client',
+        'GET  /.well-known/openid-configuration - Discovery'
+      );
+    }
+
+    logger.info({ endpoints }, 'Available endpoints');
   } catch (error) {
     logger.fatal({ error }, 'Failed to start server');
     process.exit(1);

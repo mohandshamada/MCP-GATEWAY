@@ -107,6 +107,20 @@
       }
     }
   ],
+  "oauthServer": {
+    "enabled": true,
+    "tokenExpiresIn": 3600,
+    "refreshTokenExpiresIn": 86400,
+    "clients": [
+      {
+        "clientId": "mcp-client",
+        "clientSecret": "mcp-secret-key-change-in-production",
+        "name": "MCP Gateway Client",
+        "scopes": ["mcp:read", "mcp:write", "mcp:admin"],
+        "grantTypes": ["client_credentials", "password", "refresh_token"]
+      }
+    ]
+  },
   "settings": {
     "requestTimeout": 120000,
     "enableHealthChecks": true,
