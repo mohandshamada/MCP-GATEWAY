@@ -36,7 +36,7 @@
     "@modelcontextprotocol/server-memory": "^2025.11.25",
     "@modelcontextprotocol/server-sequential-thinking": "^2025.11.25",
     "@wonderwhy-er/desktop-commander": "^0.2.23",
-    "chrome-devtools-mcp": "^0.0.12",
+    "chrome-devtools-mcp": "^0.12.0",
     "eventsource": "^2.0.2",
     "fastify": "^4.28.1",
     "pino": "^9.4.0",
