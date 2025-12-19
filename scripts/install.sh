@@ -215,9 +215,9 @@ install_caddy() {
     apt-get update -qq
     apt-get install -y caddy
 
-    # Create log directory
+    # Create log directory and ensure proper ownership
     mkdir -p /var/log/caddy
-    chown caddy:caddy /var/log/caddy
+    chown -R caddy:caddy /var/log/caddy
 
     success "Caddy installed"
 }
@@ -568,6 +568,9 @@ EOF
 
 start_services() {
     step "Step 10: Starting Services"
+
+    # Ensure Caddy log directory has correct permissions
+    chown -R caddy:caddy /var/log/caddy
 
     info "Starting Caddy..."
     systemctl restart caddy
