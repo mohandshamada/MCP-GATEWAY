@@ -1,8 +1,8 @@
 # MCP Gateway
 
-A production-ready **Federated Gateway Service** for the Model Context Protocol (MCP) that aggregates multiple MCP servers into a single, namespaced, authenticated endpoint with **71 pre-installed tools** ready to use out of the box.
+A production-ready **Federated Gateway Service** for the Model Context Protocol (MCP) that aggregates multiple MCP servers into a single, namespaced, authenticated endpoint with **75 pre-installed tools** ready to use out of the box.
 
-[![Node.js](https://img.shields.io/badge/Node.js-20+-green.svg)](https://nodejs.org/)
+[![Node.js](https://img.shields.io/badge/Node.js-22+-green.svg)](https://nodejs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.5+-blue.svg)](https://www.typescriptlang.org/)
 [![MCP](https://img.shields.io/badge/MCP-Compatible-purple.svg)](https://modelcontextprotocol.io/)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -11,7 +11,7 @@ A production-ready **Federated Gateway Service** for the Model Context Protocol 
 
 ## Highlights
 
-- **71 Tools Pre-installed** - 5 MCP servers ready to use immediately
+- **75 Tools Pre-installed** - 5 MCP servers ready to use immediately
 - **Zero Configuration Startup** - Just `npm install && npm start`
 - **Caddy Integration** - Automatic SSL with Let's Encrypt, reverse proxy
 - **OAuth Support** - Client ID/Secret authentication for Claude app integration
@@ -30,14 +30,34 @@ A production-ready **Federated Gateway Service** for the Model Context Protocol 
 | **Memory** | 9 | Knowledge graph with entities, relations, observations |
 | **Sequential Thinking** | 1 | Step-by-step problem solving with branching |
 | **Desktop Commander** | 25 | Terminal commands, file editing, process management |
-| **Playwright** | 22 | Browser automation, screenshots, web scraping |
-| **Total** | **71** | **Ready to use immediately** |
+| **Chrome DevTools** | 26 | Browser debugging, performance analysis, network inspection |
+| **Total** | **75** | **Ready to use immediately** |
 
 ---
 
 ## Quick Start
 
-### One-Command Installation (Ubuntu Server)
+### Complete Installation (Recommended)
+
+The interactive install script handles everything - dependencies, domain setup, OAuth, and SSL:
+
+```bash
+# Clone and run complete installation
+git clone https://github.com/mohandshamada/MCP-Gateway.git
+cd MCP-Gateway
+sudo ./scripts/install.sh
+```
+
+The install script will:
+- Install Node.js 22+ and system dependencies
+- Install Google Chrome (for Chrome DevTools MCP)
+- Install and configure Caddy with automatic SSL
+- Ask for your domain name
+- Set up OAuth server with your credentials
+- Configure and start all services
+- Print your SSE link and OAuth credentials
+
+### Alternative: Step-by-Step Installation
 
 ```bash
 # Clone and run setup
@@ -46,10 +66,10 @@ cd MCP-Gateway
 sudo ./scripts/setup-ubuntu.sh
 ```
 
-The setup script will:
-- Install Node.js 20+ and system dependencies
+This setup script will:
+- Install Node.js 22+ and system dependencies
 - Install all MCP server packages
-- Install Playwright browsers (Chromium)
+- Install Google Chrome (for Chrome DevTools MCP)
 - Create directories with 777 permissions
 - Build the gateway
 - Create and enable systemd service
@@ -87,7 +107,7 @@ cd MCP-Gateway/mcp-gateway
 # Install dependencies (includes all MCP servers)
 npm install
 
-# Setup Playwright browsers
+# Setup MCP directories
 npm run setup:mcp
 
 # Build
@@ -1024,7 +1044,7 @@ All tools are automatically namespaced to prevent collisions:
 | filesystem | `read_file` | `filesystem__read_file` |
 | memory | `create_entities` | `memory__create_entities` |
 | desktop-commander | `execute_command` | `desktop-commander__execute_command` |
-| playwright | `browser_navigate` | `playwright__browser_navigate` |
+| chrome-devtools | `navigate_page` | `chrome-devtools__navigate_page` |
 
 ### Example: Call a Namespaced Tool
 
@@ -1137,7 +1157,7 @@ curl -H "Authorization: Bearer $TOKEN" https://your-domain.com/admin/metrics
 Run the setup scripts in order for a complete deployment:
 
 ```bash
-# 1. System dependencies (Node.js, Playwright browsers, etc.)
+# 1. System dependencies (Node.js, Chrome, etc.)
 sudo ./scripts/setup-ubuntu.sh
 
 # 2. Caddy reverse proxy (SSL, domain configuration)
@@ -1320,19 +1340,19 @@ npm run build
 | `start_process`, `interact_with_process` | Process management |
 | And more... | |
 
-### Playwright (22 tools)
+### Chrome DevTools (26 tools)
 
 | Tool | Description |
 |------|-------------|
-| `browser_navigate` | Navigate to URL |
-| `browser_screenshot` | Take screenshots |
-| `browser_click` | Click elements |
-| `browser_type` | Type text |
-| `browser_scroll` | Scroll page |
-| `browser_select` | Select options |
-| `browser_hover` | Hover elements |
-| `browser_evaluate` | Execute JavaScript |
-| `browser_wait` | Wait for elements |
+| `navigate_page` | Navigate to URL |
+| `take_screenshot` | Take screenshots |
+| `click_element` | Click elements |
+| `type_text` | Type text into inputs |
+| `scroll_page` | Scroll the page |
+| `get_console_messages` | Get browser console logs |
+| `get_network_requests` | Inspect network requests |
+| `run_performance_trace` | Performance profiling |
+| `evaluate_javascript` | Execute JavaScript |
 | And more... | |
 
 ---
@@ -1390,14 +1410,16 @@ curl -H "Authorization: Bearer $TOKEN" https://your-domain.com/admin/permissions
 sudo systemctl restart mcp-gateway
 ```
 
-### Playwright browser issues
+### Chrome DevTools browser issues
 
 ```bash
-# Install browsers manually
-npx playwright install chromium --with-deps
+# Install Chrome manually
+wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | sudo gpg --dearmor -o /usr/share/keyrings/google-chrome.gpg
+echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
+sudo apt-get update && sudo apt-get install -y google-chrome-stable
 
-# Check Playwright installation
-npx playwright --version
+# Check Chrome installation
+google-chrome --version
 ```
 
 ### Configuration not persisting
@@ -1517,5 +1539,5 @@ MIT License - see [LICENSE](LICENSE) for details.
 - [Model Context Protocol](https://modelcontextprotocol.io/) - Protocol specification
 - [Anthropic](https://anthropic.com/) - MCP SDK and reference servers
 - [Fastify](https://fastify.io/) - High-performance web framework
-- [Playwright](https://playwright.dev/) - Browser automation
+- [Chrome DevTools MCP](https://github.com/anthropics/chrome-devtools-mcp) - Browser debugging and automation
 - [Caddy](https://caddyserver.com/) - Automatic HTTPS web server

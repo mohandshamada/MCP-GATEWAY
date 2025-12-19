@@ -74,17 +74,17 @@ install_system_deps() {
 
     $USE_SUDO apt-get update -y
 
-    # Install Node.js 20.x if not present or outdated
-    if ! command -v node &> /dev/null || [[ $(node -v | cut -d'.' -f1 | tr -d 'v') -lt 20 ]]; then
-        log_info "Installing Node.js 20.x..."
-        curl -fsSL https://deb.nodesource.com/setup_20.x | $USE_SUDO bash -
+    # Install Node.js 22.x if not present or outdated (required for Chrome DevTools MCP)
+    if ! command -v node &> /dev/null || [[ $(node -v | cut -d'.' -f1 | tr -d 'v') -lt 22 ]]; then
+        log_info "Installing Node.js 22.x..."
+        curl -fsSL https://deb.nodesource.com/setup_22.x | $USE_SUDO bash -
         $USE_SUDO apt-get install -y nodejs
     else
         log_info "Node.js already installed: $(node --version)"
     fi
 
-    # Install required system packages for Playwright and other tools
-    log_info "Installing system packages for browser automation..."
+    # Install required system packages for Chrome and other tools
+    log_info "Installing system packages for Chrome DevTools..."
     $USE_SUDO apt-get install -y \
         curl \
         wget \
@@ -166,7 +166,7 @@ install_npm_packages() {
         "@modelcontextprotocol/server-memory"
         "@modelcontextprotocol/server-sequential-thinking"
         "@wonderwhy-er/desktop-commander"
-        "@playwright/mcp"
+        "chrome-devtools-mcp"
     )
 
     all_installed=true
@@ -188,21 +188,29 @@ install_npm_packages() {
 }
 
 # ============================================================================
-# Install Playwright Browsers
+# Install Google Chrome
 # ============================================================================
 
-install_playwright() {
-    log_step "Installing Playwright browsers..."
+install_chrome() {
+    log_step "Installing Google Chrome..."
 
-    cd "$INSTALL_DIR"
+    # Check if Chrome is already installed
+    if command -v google-chrome &> /dev/null || command -v google-chrome-stable &> /dev/null; then
+        log_info "Google Chrome already installed: $(google-chrome --version 2>/dev/null || google-chrome-stable --version 2>/dev/null)"
+        return 0
+    fi
 
-    # Install Playwright browsers (chromium by default)
-    log_info "Installing Chromium browser for Playwright..."
-    npx playwright install chromium --with-deps 2>/dev/null || \
-        npx playwright install chromium || \
-        log_warn "Playwright browser installation may require manual setup"
+    # Add Google Chrome repository
+    log_info "Adding Google Chrome repository..."
+    wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | $USE_SUDO gpg --dearmor -o /usr/share/keyrings/google-chrome.gpg 2>/dev/null || true
+    echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" | $USE_SUDO tee /etc/apt/sources.list.d/google-chrome.list > /dev/null
 
-    log_info "Playwright browsers installed"
+    # Install Chrome
+    log_info "Installing Google Chrome..."
+    $USE_SUDO apt-get update -qq
+    $USE_SUDO apt-get install -y google-chrome-stable
+
+    log_info "Google Chrome installed: $(google-chrome --version 2>/dev/null || google-chrome-stable --version 2>/dev/null)"
 }
 
 # ============================================================================
@@ -365,7 +373,7 @@ print_summary() {
     echo -e "  ✓ Memory Server         - Knowledge graph memory"
     echo -e "  ✓ Sequential Thinking   - Step-by-step problem solving"
     echo -e "  ✓ Desktop Commander     - Terminal and file editing"
-    echo -e "  ✓ Playwright            - Browser automation"
+    echo -e "  ✓ Chrome DevTools       - Browser debugging and automation"
     echo ""
     echo -e "${YELLOW}Quick Start:${NC}"
     echo -e "  Development:  cd ${INSTALL_DIR} && npm start"
@@ -394,9 +402,9 @@ print_summary() {
 main() {
     check_root
     install_system_deps
+    install_chrome
     create_directories
     install_npm_packages
-    install_playwright
     build_gateway
     set_permissions
     create_systemd_service
@@ -418,15 +426,15 @@ case "${1:-}" in
         echo "  - Memory Server (Knowledge Graph)"
         echo "  - Sequential Thinking"
         echo "  - Desktop Commander"
-        echo "  - Playwright Browser Automation"
+        echo "  - Chrome DevTools"
         exit 0
         ;;
     --skip-verify)
         check_root
         install_system_deps
+        install_chrome
         create_directories
         install_npm_packages
-        install_playwright
         build_gateway
         set_permissions
         create_systemd_service
