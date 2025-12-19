@@ -37,25 +37,35 @@ async function createServer(config: GatewayConfig): Promise<ReturnType<typeof Fa
     trustProxy: true, // Trust reverse proxy headers
   });
 
-  // Register CORS
+  // Register CORS with configurable origins
+  // In production, set domain.allowedOrigins in config to restrict access
+  const allowedOrigins = config.domain?.allowedOrigins || [];
   await fastify.register(cors, {
-    origin: true,
+    origin: allowedOrigins.length > 0
+      ? allowedOrigins
+      : (origin, callback) => {
+          // Allow requests with no origin (mobile apps, curl, etc.)
+          // or same-origin requests
+          if (!origin) {
+            callback(null, true);
+            return;
+          }
+          // In development/when no origins configured, allow all but log warning
+          if (allowedOrigins.length === 0) {
+            logger.debug({ origin }, 'CORS: Allowing origin (no allowedOrigins configured)');
+          }
+          callback(null, true);
+        },
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID', 'X-Session-ID', 'Accept'],
   });
 
   // Register form body parser for OAuth token endpoint
   await fastify.register(formbody);
 
-  // Register OAuth routes BEFORE auth middleware (token endpoint must be public)
-  if (config.oauthServer?.enabled) {
-    registerOAuthRoutes(fastify);
-    logger.info(
-      { clients: config.oauthServer.clients?.length || 0 },
-      'OAuth server routes registered'
-    );
-  }
-
-  // Initialize and register rate limiting
+  // Initialize and register rate limiting BEFORE OAuth routes
+  // This ensures OAuth token endpoint is also rate-limited to prevent brute force
   if (config.settings.enableRateLimiting) {
     initializeRateLimiter(config.settings.rateLimit);
     fastify.addHook('preHandler', rateLimitMiddleware);
@@ -64,7 +74,17 @@ async function createServer(config: GatewayConfig): Promise<ReturnType<typeof Fa
         windowMs: config.settings.rateLimit.windowMs,
         maxRequests: config.settings.rateLimit.maxRequests,
       },
-      'Rate limiting enabled'
+      'Rate limiting enabled (applies to all endpoints including OAuth)'
+    );
+  }
+
+  // Register OAuth routes BEFORE auth middleware (token endpoint must be public)
+  // Note: OAuth token endpoint is now rate-limited to prevent brute force attacks
+  if (config.oauthServer?.enabled) {
+    registerOAuthRoutes(fastify);
+    logger.info(
+      { clients: config.oauthServer.clients?.length || 0 },
+      'OAuth server routes registered'
     );
   }
 

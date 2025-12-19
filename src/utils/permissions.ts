@@ -5,13 +5,16 @@ import { logger } from './logger.js';
 
 /**
  * Permission mode constants
+ * Note: Using 755 instead of 777 for security - owner has full access,
+ * group and others can read/execute but not write
  */
 export const PERMISSIONS = {
-  FULL_ACCESS: 0o777,    // rwxrwxrwx - Full access for all
+  FULL_ACCESS: 0o755,    // rwxr-xr-x - Secure default (was 777)
   OWNER_FULL: 0o700,     // rwx------ - Owner only
   GROUP_WRITE: 0o775,    // rwxrwxr-x - Owner/group write
   READ_ONLY: 0o444,      // r--r--r-- - Read only for all
   EXECUTABLE: 0o755,     // rwxr-xr-x - Executable
+  LEGACY_FULL: 0o777,    // rwxrwxrwx - Legacy full access (avoid using)
 } as const;
 
 /**
@@ -139,7 +142,7 @@ export function createDirectoryWithFullAccess(
     // Try with sudo if direct creation fails
     if (hasSudoAccess()) {
       try {
-        execSync(`sudo mkdir -p "${dirPath}" && sudo chmod 777 "${dirPath}"`, {
+        execSync(`sudo mkdir -p "${dirPath}" && sudo chmod 755 "${dirPath}"`, {
           stdio: 'pipe',
           timeout: 10000,
         });
@@ -312,7 +315,7 @@ export function ensureMcpToolDirectories(basePath: string): { success: boolean; 
     return { success: false, errors };
   }
 
-  logger.info({ directories }, 'MCP tool directories created with full permissions (777)');
+  logger.info({ directories }, 'MCP tool directories created with secure permissions (755)');
   return { success: true, errors: [] };
 }
 

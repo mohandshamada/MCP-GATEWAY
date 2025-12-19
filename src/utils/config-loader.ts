@@ -135,6 +135,9 @@ export const DomainConfigSchema = z.object({
     enabled: z.boolean().default(false),
     type: z.enum(['caddy', 'nginx', 'custom']).default('caddy'),
   }).default({}),
+  // CORS allowed origins - empty array allows all origins (development mode)
+  // In production, specify allowed origins like ["https://example.com"]
+  allowedOrigins: z.array(z.string().url()).default([]),
 });
 
 export type DomainConfig = z.infer<typeof DomainConfigSchema>;

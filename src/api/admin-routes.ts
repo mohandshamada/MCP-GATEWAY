@@ -728,10 +728,10 @@ export async function registerAdminRoutes(fastify: FastifyInstance): Promise<voi
 
       return reply.status(201).send({
         success: true,
-        message: `Directory created with 777 permissions`,
+        message: `Directory created with secure permissions (755)`,
         data: {
           path: targetPath,
-          mode: '777',
+          mode: '755',
         },
         requestId,
       });
@@ -766,25 +766,99 @@ export async function registerAdminRoutes(fastify: FastifyInstance): Promise<voi
 
       const { command, cwd, timeout } = schema.parse(request.body);
 
-      // Security: Block dangerous commands
-      const blockedPatterns = [
-        /rm\s+-rf\s+\//, // rm -rf /
-        /mkfs/,          // filesystem formatting
-        /dd\s+if=.*of=\/dev/, // disk destruction
-        /shutdown/,      // shutdown commands
-        /reboot/,        // reboot
-        /init\s+0/,      // halt
+      // Security: Whitelist allowed commands (safer than blacklist)
+      const allowedCommands = [
+        /^ls(\s|$)/,                    // list directory
+        /^cat\s+/,                      // read file
+        /^head\s+/,                     // read file head
+        /^tail\s+/,                     // read file tail
+        /^pwd$/,                        // print working directory
+        /^whoami$/,                     // current user
+        /^id$/,                         // user id info
+        /^uname(\s|$)/,                 // system info
+        /^df(\s|$)/,                    // disk free
+        /^du(\s|$)/,                    // disk usage
+        /^free(\s|$)/,                  // memory info
+        /^ps(\s|$)/,                    // process status
+        /^top\s+-bn1/,                  // one-shot top
+        /^uptime$/,                     // system uptime
+        /^date$/,                       // current date
+        /^echo\s+/,                     // echo (no redirects)
+        /^mkdir\s+-p?\s+/,              // create directory
+        /^cp\s+/,                       // copy files
+        /^mv\s+/,                       // move files
+        /^touch\s+/,                    // create/update file
+        /^chmod\s+[0-7]{3,4}\s+/,       // change permissions (numeric only)
+        /^chown\s+[\w:-]+\s+/,          // change ownership
+        /^find\s+/,                     // find files
+        /^grep\s+/,                     // search in files
+        /^wc(\s|$)/,                    // word count
+        /^sort(\s|$)/,                  // sort
+        /^uniq(\s|$)/,                  // unique
+        /^file\s+/,                     // file type
+        /^stat\s+/,                     // file stats
+        /^realpath\s+/,                 // resolve path
+        /^basename\s+/,                 // base name
+        /^dirname\s+/,                  // directory name
+        /^npm\s+(install|ci|run|test|build)/, // npm commands
+        /^node\s+/,                     // node commands
+        /^systemctl\s+(status|is-active|show)/, // systemctl read-only
+        /^journalctl(\s|$)/,            // read logs
       ];
 
-      for (const pattern of blockedPatterns) {
+      // Additional security: Block dangerous patterns even in allowed commands
+      const dangerousPatterns = [
+        /[;&|`$()]|>\s*\/|>>/,          // shell metacharacters, redirects to root
+        /\brm\b/,                       // rm anywhere
+        /\bsudo\b/,                     // sudo in command (we add it ourselves)
+        /\beval\b/,                     // eval
+        /\bexec\b/,                     // exec
+        /\bsource\b/,                   // source
+        /\bcurl\b.*\|\s*(ba)?sh/,       // curl pipe to shell
+        /\bwget\b.*\|\s*(ba)?sh/,       // wget pipe to shell
+        /\/etc\/passwd/,                // password file
+        /\/etc\/shadow/,                // shadow file
+        /\.ssh\//,                      // ssh directory
+        /\bkill\b/,                     // kill processes
+        /\bpkill\b/,                    // pkill processes
+        /\bkillall\b/,                  // killall
+        /\breboot\b/,                   // reboot
+        /\bshutdown\b/,                 // shutdown
+        /\binit\s+[06]/,                // init halt/reboot
+        /\bmkfs\b/,                     // filesystem formatting
+        /\bdd\b/,                       // disk copy
+        /\bformat\b/,                   // format
+      ];
+
+      // Check for dangerous patterns first
+      for (const pattern of dangerousPatterns) {
         if (pattern.test(command)) {
-          log.warn({ command, requestId }, 'Blocked dangerous command');
+          log.warn({ command, requestId, pattern: pattern.source }, 'Blocked dangerous command pattern');
           return reply.status(403).send({
             success: false,
-            error: 'Command blocked for security reasons',
+            error: 'Command contains blocked pattern for security reasons',
             requestId,
           });
         }
+      }
+
+      // Check if command matches whitelist
+      const isAllowed = allowedCommands.some(pattern => pattern.test(command));
+      if (!isAllowed) {
+        log.warn({ command, requestId }, 'Command not in whitelist');
+        return reply.status(403).send({
+          success: false,
+          error: 'Command not allowed. Only specific safe commands are permitted.',
+          allowedCommands: [
+            'ls, cat, head, tail, pwd, whoami, id',
+            'uname, df, du, free, ps, uptime, date',
+            'mkdir, cp, mv, touch, chmod, chown',
+            'find, grep, wc, sort, uniq, file, stat',
+            'npm (install|ci|run|test|build), node',
+            'systemctl (status|is-active|show), journalctl',
+          ],
+          requestId,
+        });
       }
 
       log.info({ command, cwd, timeout, requestId }, 'Executing command with elevated privileges');

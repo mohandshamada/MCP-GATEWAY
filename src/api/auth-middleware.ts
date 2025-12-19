@@ -1,6 +1,21 @@
 import type { FastifyRequest, FastifyReply, FastifyInstance, HookHandlerDoneFunction } from 'fastify';
+import { timingSafeEqual } from 'crypto';
 import { createChildLogger, type Logger } from '../utils/logger.js';
 import { getOAuthServer } from '../oauth/oauth-server.js';
+
+/**
+ * Timing-safe string comparison to prevent timing attacks
+ */
+function safeCompare(a: string, b: string): boolean {
+  if (a.length !== b.length) {
+    // Use a constant-time comparison even for length mismatch
+    // by comparing against a dummy value
+    const dummy = Buffer.alloc(a.length, 0);
+    timingSafeEqual(Buffer.from(a), dummy);
+    return false;
+  }
+  return timingSafeEqual(Buffer.from(a), Buffer.from(b));
+}
 
 /**
  * Auth middleware configuration
@@ -50,19 +65,20 @@ function extractBearerToken(authHeader: string | undefined): string | null {
 
 /**
  * Validate a token against configured tokens and OAuth server
+ * Uses timing-safe comparison to prevent timing attacks
  */
 function validateToken(token: string): { valid: boolean; isAdmin: boolean } {
   if (!authConfig) {
     return { valid: false, isAdmin: false };
   }
 
-  // Check admin tokens first
-  if (authConfig.adminTokens?.includes(token)) {
+  // Check admin tokens first (timing-safe comparison)
+  if (authConfig.adminTokens?.some(t => safeCompare(t, token))) {
     return { valid: true, isAdmin: true };
   }
 
-  // Check regular tokens
-  if (authConfig.tokens.includes(token)) {
+  // Check regular tokens (timing-safe comparison)
+  if (authConfig.tokens.some(t => safeCompare(t, token))) {
     return { valid: true, isAdmin: false };
   }
 
