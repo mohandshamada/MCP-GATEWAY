@@ -90,21 +90,18 @@
       }
     },
     {
-      "id": "playwright",
+      "id": "chrome-devtools",
       "transport": "stdio",
-      "command": "node",
+      "command": "npx",
       "args": [
-        "node_modules/@playwright/mcp/cli.js"
+        "-y",
+        "chrome-devtools-mcp@latest"
       ],
       "enabled": true,
       "lazyLoad": false,
       "timeout": 120000,
       "maxRetries": 3,
-      "env": {
-        "HEADLESS": "true",
-        "BROWSER": "chromium",
-        "SCREENSHOTS_DIR": "./mcp-data/screenshots"
-      }
+      "env": {}
     }
   ],
   "oauthServer": {

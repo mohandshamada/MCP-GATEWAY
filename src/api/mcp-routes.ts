@@ -1,10 +1,46 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
+import { readFileSync, existsSync } from 'fs';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
 import { getGateway } from '../core/gateway.js';
 import { type JsonRpcRequest } from '../adapters/index.js';
 import { createChildLogger, type Logger } from '../utils/logger.js';
 
 const log: Logger = createChildLogger({ component: 'mcp-api' });
+
+// Get the directory of the current module for asset loading
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const projectRoot = join(__dirname, '..', '..');
+
+// Cache the icon content for performance
+let iconSvgCache: string | null = null;
+
+/**
+ * Load and cache the gateway icon
+ */
+function getIconSvg(): string | null {
+  if (iconSvgCache !== null) {
+    return iconSvgCache;
+  }
+
+  const iconPath = join(projectRoot, 'assets', 'icon.svg');
+  if (existsSync(iconPath)) {
+    try {
+      iconSvgCache = readFileSync(iconPath, 'utf-8');
+      log.debug({ iconPath }, 'Gateway icon loaded');
+    } catch (error) {
+      log.warn({ error, iconPath }, 'Failed to load gateway icon');
+      iconSvgCache = '';
+    }
+  } else {
+    log.debug({ iconPath }, 'Gateway icon not found');
+    iconSvgCache = '';
+  }
+
+  return iconSvgCache || null;
+}
 
 /**
  * JSON-RPC request schema
@@ -28,6 +64,37 @@ const sseConnections: Map<string, FastifyReply> = new Map();
  * Register MCP routes
  */
 export async function registerMcpRoutes(fastify: FastifyInstance): Promise<void> {
+  /**
+   * GET /icon.svg - Gateway icon for MCP clients
+   * Returns the gateway icon that can be displayed in Claude Desktop and other MCP clients
+   */
+  fastify.get('/icon.svg', async (_request: FastifyRequest, reply: FastifyReply) => {
+    const iconSvg = getIconSvg();
+
+    if (!iconSvg) {
+      return reply.status(404).send({ error: 'Icon not found' });
+    }
+
+    reply.header('Content-Type', 'image/svg+xml');
+    reply.header('Cache-Control', 'public, max-age=86400'); // Cache for 24 hours
+    return reply.send(iconSvg);
+  });
+
+  /**
+   * GET /icon - Alias for /icon.svg
+   */
+  fastify.get('/icon', async (_request: FastifyRequest, reply: FastifyReply) => {
+    const iconSvg = getIconSvg();
+
+    if (!iconSvg) {
+      return reply.status(404).send({ error: 'Icon not found' });
+    }
+
+    reply.header('Content-Type', 'image/svg+xml');
+    reply.header('Cache-Control', 'public, max-age=86400');
+    return reply.send(iconSvg);
+  });
+
   /**
    * GET /sse - Server-Sent Events endpoint for MCP
    * This establishes a long-lived connection for receiving server-initiated messages
