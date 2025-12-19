@@ -303,9 +303,9 @@ install_gateway() {
     # Create directories
     info "Creating data directories..."
     mkdir -p mcp-data/{data,logs,cache,temp,uploads,downloads,screenshots,workspace}
-    chmod -R 777 mcp-data
+    chmod -R 755 mcp-data
     mkdir -p logs
-    chmod 777 logs
+    chmod 755 logs
 
     success "MCP Gateway installed"
 }

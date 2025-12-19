@@ -16,7 +16,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "setup:mcp": "npm run setup:dirs",
-    "setup:dirs": "node -e \"const fs=require('fs'); ['mcp-data/data','mcp-data/logs','mcp-data/cache','mcp-data/temp','mcp-data/uploads','mcp-data/downloads','mcp-data/screenshots','mcp-data/workspace'].forEach(d => { fs.mkdirSync(d, {recursive:true,mode:0o777}); fs.chmodSync(d,0o777); });\"",
+    "setup:dirs": "node -e \"const fs=require('fs'); ['mcp-data/data','mcp-data/logs','mcp-data/cache','mcp-data/temp','mcp-data/uploads','mcp-data/downloads','mcp-data/screenshots','mcp-data/workspace'].forEach(d => { fs.mkdirSync(d, {recursive:true,mode:0o755}); fs.chmodSync(d,0o755); });\"",
     "postinstall": "npm run setup:dirs 2>/dev/null || true"
   },
   "keywords": [

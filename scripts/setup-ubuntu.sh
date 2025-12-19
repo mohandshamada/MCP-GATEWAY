@@ -120,7 +120,7 @@ install_system_deps() {
 # ============================================================================
 
 create_directories() {
-    log_step "Creating directories with full permissions (777)..."
+    log_step "Creating directories with secure permissions (755)..."
 
     directories=(
         "${MCP_DATA_DIR}"
@@ -138,11 +138,11 @@ create_directories() {
 
     for dir in "${directories[@]}"; do
         $USE_SUDO mkdir -p "$dir"
-        $USE_SUDO chmod 777 "$dir"
+        $USE_SUDO chmod 755 "$dir"
         log_info "Created: ${dir}"
     done
 
-    log_info "All directories created with 777 permissions"
+    log_info "All directories created with secure permissions (755)"
 }
 
 # ============================================================================
@@ -233,17 +233,17 @@ build_gateway() {
 set_permissions() {
     log_step "Setting final permissions..."
 
-    # Set 777 on data directories
-    $USE_SUDO chmod -R 777 "${MCP_DATA_DIR}" 2>/dev/null || true
-    $USE_SUDO chmod -R 777 "${LOG_DIR}" 2>/dev/null || true
+    # Set secure permissions on data directories (755 = owner full, others read/execute)
+    $USE_SUDO chmod -R 755 "${MCP_DATA_DIR}" 2>/dev/null || true
+    $USE_SUDO chmod -R 755 "${LOG_DIR}" 2>/dev/null || true
 
-    # Make config writable
-    $USE_SUDO chmod 666 "${INSTALL_DIR}/config/gateway.json" 2>/dev/null || true
+    # Make config writable by owner only (644 = owner read/write, others read)
+    $USE_SUDO chmod 644 "${INSTALL_DIR}/config/gateway.json" 2>/dev/null || true
 
     # Make scripts executable
     $USE_SUDO chmod +x "${INSTALL_DIR}/scripts/"*.sh 2>/dev/null || true
 
-    log_info "Permissions configured"
+    log_info "Permissions configured (secure: 755 for dirs, 644 for config)"
 }
 
 # ============================================================================
@@ -330,6 +330,21 @@ verify_installation() {
 
     cd "$INSTALL_DIR"
 
+    # Get token from config file
+    CONFIG_FILE="${INSTALL_DIR}/config/gateway.json"
+    if [ -f "$CONFIG_FILE" ]; then
+        # Extract first token from config using grep/sed (works without jq)
+        # First try to get sk- prefixed token, otherwise get any token
+        AUTH_TOKEN=$(cat "$CONFIG_FILE" | tr -d '\n' | grep -o '"tokens"[[:space:]]*:[[:space:]]*\[[^]]*\]' | grep -oE '"[^"]{20,}"' | head -1 | tr -d '"')
+        if [ -z "$AUTH_TOKEN" ]; then
+            AUTH_TOKEN="no-token-found"
+            log_warn "Could not extract auth token from config"
+        fi
+    else
+        AUTH_TOKEN="no-token-found"
+        log_warn "Config file not found"
+    fi
+
     # Check if gateway can start
     log_info "Testing gateway startup..."
 
@@ -338,14 +353,14 @@ verify_installation() {
     sleep 10
 
     # Test health endpoint
-    if curl -s http://localhost:3000/admin/health -H "Authorization: Bearer test-token-12345" | grep -q "healthy"; then
+    if curl -s http://localhost:3000/admin/health -H "Authorization: Bearer ${AUTH_TOKEN}" | grep -q "healthy"; then
         log_info "✓ Gateway health check passed"
     else
         log_warn "Gateway health check returned unhealthy (MCP servers may still be initializing)"
     fi
 
     # Get server count
-    SERVERS=$(curl -s http://localhost:3000/admin/servers -H "Authorization: Bearer test-token-12345" 2>/dev/null)
+    SERVERS=$(curl -s http://localhost:3000/admin/servers -H "Authorization: Bearer ${AUTH_TOKEN}" 2>/dev/null)
     if echo "$SERVERS" | grep -q "total"; then
         log_info "✓ Gateway API responding correctly"
     fi
@@ -362,6 +377,17 @@ verify_installation() {
 # ============================================================================
 
 print_summary() {
+    # Get token from config file for display
+    CONFIG_FILE="${INSTALL_DIR}/config/gateway.json"
+    if [ -f "$CONFIG_FILE" ]; then
+        AUTH_TOKEN=$(cat "$CONFIG_FILE" | tr -d '\n' | grep -o '"tokens"[[:space:]]*:[[:space:]]*\[[^]]*\]' | grep -oE '"[^"]{20,}"' | head -1 | tr -d '"')
+        if [ -z "$AUTH_TOKEN" ]; then
+            AUTH_TOKEN="(check config/gateway.json for tokens)"
+        fi
+    else
+        AUTH_TOKEN="(check config/gateway.json for tokens)"
+    fi
+
     echo -e "\n${GREEN}============================================================================${NC}"
     echo -e "${GREEN}   Installation Complete!${NC}"
     echo -e "${GREEN}============================================================================${NC}"
@@ -381,11 +407,14 @@ print_summary() {
     echo -e "  Status:       sudo systemctl status mcp-gateway"
     echo -e "  Logs:         sudo journalctl -u mcp-gateway -f"
     echo ""
+    echo -e "${YELLOW}API Token:${NC}"
+    echo -e "  ${AUTH_TOKEN}"
+    echo ""
     echo -e "${YELLOW}API Endpoints:${NC}"
-    echo -e "  Health:       curl -H 'Authorization: Bearer test-token-12345' http://localhost:3000/admin/health"
-    echo -e "  Servers:      curl -H 'Authorization: Bearer test-token-12345' http://localhost:3000/admin/servers"
-    echo -e "  Tools:        curl -H 'Authorization: Bearer test-token-12345' http://localhost:3000/admin/tools"
-    echo -e "  Permissions:  curl -H 'Authorization: Bearer test-token-12345' http://localhost:3000/admin/permissions"
+    echo -e "  Health:       curl -H 'Authorization: Bearer \$TOKEN' http://localhost:3000/admin/health"
+    echo -e "  Servers:      curl -H 'Authorization: Bearer \$TOKEN' http://localhost:3000/admin/servers"
+    echo -e "  Tools:        curl -H 'Authorization: Bearer \$TOKEN' http://localhost:3000/admin/tools"
+    echo -e "  Permissions:  curl -H 'Authorization: Bearer \$TOKEN' http://localhost:3000/admin/permissions"
     echo ""
     echo -e "${YELLOW}Configuration:${NC}"
     echo -e "  Config file:  ${INSTALL_DIR}/config/gateway.json"

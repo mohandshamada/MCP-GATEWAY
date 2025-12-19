@@ -285,7 +285,7 @@ check_gateway_health() {
     log_step "Checking MCP Gateway health..."
 
     local health_url="http://${PROXY_TARGET}/admin/health"
-    local token=$(jq -r '.auth.tokens[0] // "test-token-12345"' "$CONFIG_FILE")
+    local token=$(jq -r '.auth.tokens[0] // "no-fallback-token"' "$CONFIG_FILE")
 
     local response
     if response=$(curl -sf -H "Authorization: Bearer ${token}" "$health_url" 2>/dev/null); then
@@ -377,8 +377,8 @@ setup_directories() {
         chown -R caddy:caddy "$CADDY_DATA_DIR" 2>/dev/null || true
         log_info "Set caddy ownership on directories"
     else
-        chmod 777 "$CADDY_LOG_DIR"
-        log_warn "Caddy user not found, using 777 permissions on log directory"
+        chmod 755 "$CADDY_LOG_DIR"
+        log_warn "Caddy user not found, using 755 permissions on log directory"
     fi
 
     log_info "Directory setup complete"
@@ -674,7 +674,7 @@ run_tests() {
 
     local tests_passed=0
     local tests_failed=0
-    local token=$(jq -r '.auth.tokens[0] // "test-token-12345"' "$CONFIG_FILE")
+    local token=$(jq -r '.auth.tokens[0] // "no-fallback-token"' "$CONFIG_FILE")
 
     # Determine test URLs based on domain configuration
     local base_url
@@ -814,7 +814,7 @@ generate_report() {
     log_step "Generating setup report..."
 
     local report_file="${INSTALL_DIR}/caddy-setup-report.md"
-    local token=$(jq -r '.auth.tokens[0] // "test-token-12345"' "$CONFIG_FILE")
+    local token=$(jq -r '.auth.tokens[0] // "no-fallback-token"' "$CONFIG_FILE")
 
     cat > "$report_file" << REPORT
 # MCP Gateway - Caddy Setup Report
@@ -933,7 +933,7 @@ fix_common_issues() {
         if id "caddy" &>/dev/null; then
             chown caddy:caddy "$CADDY_LOG_DIR"
         else
-            chmod 777 "$CADDY_LOG_DIR"
+            chmod 755 "$CADDY_LOG_DIR"
         fi
         ((fixed++))
     fi
@@ -1136,7 +1136,7 @@ interactive_setup() {
 # ============================================================================
 
 print_summary() {
-    local token=$(jq -r '.auth.tokens[0] // "test-token-12345"' "$CONFIG_FILE")
+    local token=$(jq -r '.auth.tokens[0] // "no-fallback-token"' "$CONFIG_FILE")
 
     echo ""
     echo -e "${GREEN}============================================================================${NC}"

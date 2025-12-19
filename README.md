@@ -16,7 +16,7 @@ A production-ready **Federated Gateway Service** for the Model Context Protocol 
 - **Caddy Integration** - Automatic SSL with Let's Encrypt, reverse proxy
 - **OAuth Support** - Client ID/Secret authentication for Claude app integration
 - **Claude Desktop Ready** - Auto-generated configuration for Claude app
-- **Ubuntu Server Optimized** - Full root access and 777 permissions for MCP tools
+- **Ubuntu Server Optimized** - Full root access with secure 755 permissions for MCP tools
 - **Production Hardened** - Circuit breaker, retry logic, health monitoring, graceful degradation
 - **Enterprise Features** - Request correlation, persistent configuration, comprehensive logging
 
@@ -70,7 +70,7 @@ This setup script will:
 - Install Node.js 22+ and system dependencies
 - Install all MCP server packages
 - Install Google Chrome (for Chrome DevTools MCP)
-- Create directories with 777 permissions
+- Create directories with secure 755 permissions
 - Build the gateway
 - Create and enable systemd service
 
@@ -922,7 +922,7 @@ See `config/gateway.oauth-example.json` for a complete example with:
 |----------|--------|-------------|
 | `/admin/permissions` | GET | Get current permission status (root/sudo) |
 | `/admin/permissions/set` | POST | Set file/directory permissions |
-| `/admin/permissions/mkdir` | POST | Create directory with 777 permissions |
+| `/admin/permissions/mkdir` | POST | Create directory with secure 755 permissions |
 | `/admin/permissions/exec` | POST | Execute command with elevated privileges |
 
 ### Authentication
@@ -1207,7 +1207,7 @@ The gateway runs with full permissions for MCP tool access:
 # Check permission status
 curl -H "Authorization: Bearer $TOKEN" https://your-domain.com/admin/permissions
 
-# Create directory with 777
+# Create directory with secure permissions (755)
 curl -X POST https://your-domain.com/admin/permissions/mkdir \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
@@ -1234,7 +1234,7 @@ MCP-GATEWAY/
 ├── dist/                     # Compiled JavaScript
 ├── docs/                     # Documentation
 ├── logs/                     # Application logs
-├── mcp-data/                 # MCP tool data (777 permissions)
+├── mcp-data/                 # MCP tool data (755 permissions)
 │   ├── data/
 │   ├── cache/
 │   ├── downloads/
@@ -1484,11 +1484,14 @@ If Caddy shows "connection refused" or similar errors:
 
 ## Security Considerations
 
-- **Authentication**: Always use strong, unique tokens in production
+- **Authentication**: Always use strong, unique tokens (64+ character hex recommended)
+- **Timing-Safe Comparison**: Token validation uses constant-time comparison to prevent timing attacks
 - **Network**: Behind Caddy, the gateway only listens on localhost
 - **SSL**: Let's Encrypt provides automatic HTTPS certificates
-- **Permissions**: The gateway runs as root for full MCP tool access
-- **Command Execution**: The `/admin/permissions/exec` endpoint blocks dangerous commands
+- **Directory Permissions**: Uses secure 755 permissions (owner write, others read/execute only)
+- **Command Whitelist**: The `/admin/permissions/exec` endpoint uses a whitelist approach, only allowing safe commands
+- **Rate Limiting**: All endpoints including OAuth are rate-limited to prevent brute force attacks
+- **CORS**: Configurable allowed origins for cross-origin requests
 - **Token Storage**: Use environment variables for tokens in production
 - **OAuth**: Recommended for production Claude app integration
 
