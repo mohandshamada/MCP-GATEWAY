@@ -82,11 +82,12 @@ prompt() {
     local result
 
     if [ -n "$default_value" ]; then
-        echo -ne "${YELLOW}$prompt_text [${default_value}]: ${NC}"
+        # Send prompt to stderr so it displays, read result to stdout
+        echo -ne "${YELLOW}$prompt_text [${default_value}]: ${NC}" >&2
         read -r result
         echo "${result:-$default_value}"
     else
-        echo -ne "${YELLOW}$prompt_text: ${NC}"
+        echo -ne "${YELLOW}$prompt_text: ${NC}" >&2
         read -r result
         echo "$result"
     fi
@@ -96,9 +97,9 @@ prompt_password() {
     local prompt_text="$1"
     local result
 
-    echo -ne "${YELLOW}$prompt_text: ${NC}"
+    echo -ne "${YELLOW}$prompt_text: ${NC}" >&2
     read -rs result
-    echo ""
+    echo "" >&2
     echo "$result"
 }
 
