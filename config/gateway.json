@@ -1,132 +1,172 @@
 {
-  "gateway": {
-    "host": "0.0.0.0",
-    "port": 3000,
-    "name": "MCP Gateway",
-    "version": "1.0.0"
-  },
-  "domain": {
-    "domain": "mcp.mshousha.uk",
-    "publicUrl": "https://mcp.mshousha.uk",
-    "ssl": {
-      "enabled": true,
-      "email": "admin@mshousha.uk"
+    "gateway": {
+        "host": "0.0.0.0",
+        "port": 3000,
+        "name": "MCP-GATEWAY",
+        "version": "1.0.0"
     },
-    "proxy": {
-      "enabled": true,
-      "type": "caddy"
-    }
-  },
-  "auth": {
-    "enabled": true,
-    "tokens": [
-      "sk-f1b1c943d40a33dc9bf9ab42122ffe9d2e77a4e1e00b62ff9e1c758eadf2e7b1",
-      "1edb91417b46c6d90e5e5a85e4237311ec5b5402a8bf738abba23bb85f22aae6",
-      "f007b7d63b4b42522115e1757ef9d5290d19a23c2b69bb15aed992686324b3c8"
+    "domain": {
+        "domain": "mcp.mshousha.uk",
+        "publicUrl": "https://mcp.mshousha.uk",
+        "ssl": {
+            "enabled": true,
+            "email": "admin@mshousha.uk"
+        },
+        "proxy": {
+            "enabled": true,
+            "type": "caddy"
+        }
+    },
+    "auth": {
+        "enabled": true,
+        "tokens": [
+            "2d723f2a8a1c198e7cfe6b42136fa7357ad778424aa3616338b136f7f2292808"
+        ],
+        "oauth": {
+            "enabled": false
+        }
+    },
+    "servers": [
+        {
+            "id": "filesystem",
+            "transport": "stdio",
+            "command": "node",
+            "args": [
+                "node_modules/@modelcontextprotocol/server-filesystem/dist/index.js",
+                "/home",
+                "/tmp",
+                "/var",
+                "/root"
+            ],
+            "enabled": true,
+            "lazyLoad": false,
+            "timeout": 60000,
+            "maxRetries": 3,
+            "env": {}
+        },
+        {
+            "id": "memory",
+            "transport": "stdio",
+            "command": "node",
+            "args": [
+                "node_modules/@modelcontextprotocol/server-memory/dist/index.js"
+            ],
+            "enabled": true,
+            "lazyLoad": false,
+            "timeout": 60000,
+            "maxRetries": 3,
+            "env": {}
+        },
+        {
+            "id": "sequential-thinking",
+            "transport": "stdio",
+            "command": "node",
+            "args": [
+                "node_modules/@modelcontextprotocol/server-sequential-thinking/dist/index.js"
+            ],
+            "enabled": true,
+            "lazyLoad": false,
+            "timeout": 60000,
+            "maxRetries": 3,
+            "env": {}
+        },
+        {
+            "id": "desktop-commander",
+            "transport": "stdio",
+            "command": "node",
+            "args": [
+                "node_modules/@wonderwhy-er/desktop-commander/dist/index.js"
+            ],
+            "enabled": true,
+            "lazyLoad": false,
+            "timeout": 60000,
+            "maxRetries": 3,
+            "env": {
+                "ALLOWED_PATHS": "/home,/tmp,/var,/root",
+                "ENABLE_FILE_OPERATIONS": "true",
+                "ENABLE_TERMINAL": "true"
+            }
+        },
+        {
+            "id": "chrome-devtools",
+            "transport": "stdio",
+            "command": "npx",
+            "args": [
+                "-y",
+                "chrome-devtools-mcp@latest",
+                "--browser-url=http://127.0.0.1:9222"
+            ],
+            "enabled": true,
+            "lazyLoad": false,
+            "timeout": 120000,
+            "maxRetries": 3,
+            "env": {}
+        },
+        {
+            "id": "oreilly",
+            "transport": "stdio",
+            "command": "/root/.local/bin/uv",
+            "args": [
+                "run",
+                "--with",
+                "httpx,mcp[cli],pyyaml",
+                "python",
+                "oreilly-mcp/main.py",
+                "--stdio"
+            ],
+            "enabled": true,
+            "lazyLoad": false,
+            "timeout": 60000,
+            "maxRetries": 3,
+            "env": {
+                "ORM_JWT": "16b5d52ade1ef603806a6f4ea1550fb5ba0e1e7b"
+            }
+        },
+        {
+            "id": "ai-unified-memory",
+            "transport": "stdio",
+            "command": "/home/MCP-GATEWAY/scripts/ai-unified-memory.sh",
+            "args": [],
+            "enabled": true,
+            "lazyLoad": false,
+            "timeout": 60000,
+            "maxRetries": 3,
+            "env": {
+                "AGENT_NAME": "mcp-gateway"
+            }
+        }
     ],
-    "oauth": {
-      "enabled": false
+    "oauthServer": {
+        "enabled": true,
+        "tokenExpiresIn": 3600,
+        "refreshTokenExpiresIn": 86400,
+        "clients": [
+            {
+                "clientId": "mohands",
+                "clientSecret": "mohands811988",
+                "name": "MCP Gateway Client",
+                "scopes": [
+                    "mcp:read",
+                    "mcp:write",
+                    "mcp:admin"
+                ],
+                "grantTypes": [
+                    "client_credentials",
+                    "password",
+                    "refresh_token"
+                ]
+            }
+        ]
+    },
+    "settings": {
+        "requestTimeout": 120000,
+        "enableHealthChecks": true,
+        "healthCheckInterval": 30000,
+        "enableHotReload": true,
+        "enableRateLimiting": true,
+        "rateLimit": {
+            "windowMs": 60000,
+            "maxRequests": 200
+        }
     }
-  },
-  "servers": [
-    {
-      "id": "filesystem",
-      "transport": "stdio",
-      "command": "node",
-      "args": [
-        "node_modules/@modelcontextprotocol/server-filesystem/dist/index.js",
-        "/home",
-        "/tmp",
-        "/var",
-        "/root"
-      ],
-      "enabled": true,
-      "lazyLoad": false,
-      "timeout": 60000,
-      "maxRetries": 3,
-      "env": {}
-    },
-    {
-      "id": "memory",
-      "transport": "stdio",
-      "command": "node",
-      "args": [
-        "node_modules/@modelcontextprotocol/server-memory/dist/index.js"
-      ],
-      "enabled": true,
-      "lazyLoad": false,
-      "timeout": 60000,
-      "maxRetries": 3,
-      "env": {}
-    },
-    {
-      "id": "sequential-thinking",
-      "transport": "stdio",
-      "command": "node",
-      "args": [
-        "node_modules/@modelcontextprotocol/server-sequential-thinking/dist/index.js"
-      ],
-      "enabled": true,
-      "lazyLoad": false,
-      "timeout": 60000,
-      "maxRetries": 3,
-      "env": {}
-    },
-    {
-      "id": "desktop-commander",
-      "transport": "stdio",
-      "command": "node",
-      "args": [
-        "node_modules/@wonderwhy-er/desktop-commander/dist/index.js"
-      ],
-      "enabled": true,
-      "lazyLoad": false,
-      "timeout": 60000,
-      "maxRetries": 3,
-      "env": {
-        "ALLOWED_PATHS": "/home,/tmp,/var,/root",
-        "ENABLE_FILE_OPERATIONS": "true",
-        "ENABLE_TERMINAL": "true"
-      }
-    },
-    {
-      "id": "chrome-devtools",
-      "transport": "stdio",
-      "command": "npx",
-      "args": [
-        "-y",
-        "chrome-devtools-mcp@latest"
-      ],
-      "enabled": true,
-      "lazyLoad": false,
-      "timeout": 120000,
-      "maxRetries": 3,
-      "env": {}
-    }
-  ],
-  "oauthServer": {
-    "enabled": true,
-    "tokenExpiresIn": 3600,
-    "refreshTokenExpiresIn": 86400,
-    "clients": [
-      {
-        "clientId": "mcp-client",
-        "clientSecret": "sk-f70f4a9be39d624285e8975cab51ea1dfd843abf0a33cc51ab2b8fc8c01308d5",
-        "name": "MCP Gateway Client",
-        "scopes": ["mcp:read", "mcp:write", "mcp:admin"],
-        "grantTypes": ["client_credentials", "password", "refresh_token"]
-      }
-    ]
-  },
-  "settings": {
-    "requestTimeout": 120000,
-    "enableHealthChecks": true,
-    "healthCheckInterval": 30000,
-    "enableHotReload": true,
-    "enableRateLimiting": true,
-    "rateLimit": {
-      "windowMs": 60000,
-      "maxRequests": 200
-    }
-  }
 }

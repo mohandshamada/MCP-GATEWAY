@@ -30,8 +30,10 @@ A production-ready **Federated Gateway Service** for the Model Context Protocol 
 | **Memory** | 9 | Knowledge graph with entities, relations, observations |
 | **Sequential Thinking** | 1 | Step-by-step problem solving with branching |
 | **Desktop Commander** | 25 | Terminal commands, file editing, process management |
-| **Chrome DevTools** | 26 | Browser debugging, performance analysis, network inspection |
-| **Total** | **75** | **Ready to use immediately** |
+| **Chrome DevTools** | 29 | Browser debugging, performance analysis, network inspection |
+| **O'Reilly Learning** | 5 | Access O'Reilly Learning Platform content |
+| **AI Unified Memory** | 8 | Shared memory server for Claude, Kimi, Hermes, OpenClaw |
+| **Total** | **91** | **Ready to use immediately** |
 
 ---
 
